@@ -312,6 +312,10 @@ export const Game = {
 
         this.updateShip(ship);
         this.updateRun();
+        // A node can finish inside updateRun() (patrol nodes). Once the clear
+        // screen is up, stop simulating — otherwise a death resolving later in
+        // this same step would swap it for GAME OVER and the clear is lost.
+        if (Runtime.state === STATE.LEVEL_COMPLETE) return;
 
         this.updateLasers();
         this.updateAsteroids();
@@ -330,6 +334,9 @@ export const Game = {
         this.checkCollisions();
         this.updateXPOrbs(ship);
         this.checkLevelUp();
+        // Same guard: a boss kill in checkCollisions() may have just completed
+        // the node — a clear always beats a death on the same step.
+        if (Runtime.state === STATE.LEVEL_COMPLETE) return;
         this.handleDeath(ship);
 
         UI.updateHUD();

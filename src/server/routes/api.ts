@@ -91,13 +91,15 @@ api.post('/save', async (c) => {
   const { userId } = context;
   if (!userId) return fail(c, 401, 'log in to save progress');
 
-  // The client debounces to ~1 upload per 1.5s; 30/min leaves plenty of slack.
-  if (!(await allow(keys.saveRate(userId), 30, 60))) return fail(c, 429, 'saving too often');
-
+  // Validate BEFORE touching Redis (incl. the rate counter): a malformed
+  // request is rejected for free and can't burn the player's quota.
   const body = await readJson(c);
   const save = typeof body === 'object' && body !== null && 'save' in body ? body.save : undefined;
   const result = validateSave(save);
   if (!result.ok) return fail(c, result.error.includes('too large') ? 413 : 400, result.error);
+
+  // The client debounces to ~1 upload per 1.5s; 30/min leaves plenty of slack.
+  if (!(await allow(keys.saveRate(userId), 30, 60))) return fail(c, 429, 'saving too often');
 
   try {
     await writeSave(userId, result.value);
@@ -113,14 +115,15 @@ api.post('/score', async (c) => {
   const { userId, username } = context;
   if (!userId || !username) return fail(c, 401, 'log in to post scores');
 
-  // A run ends at most every few seconds; 10/min stops scripted spam.
-  if (!(await allow(keys.scoreRate(userId), 10, 60))) return fail(c, 429, 'too many scores');
-
+  // Validate first (see /save) — bad input never reaches Redis.
   const body = await readJson(c);
   const raw = typeof body === 'object' && body !== null ? body : {};
   const scoreResult = validateScore('score' in raw ? raw.score : undefined);
   if (!scoreResult.ok) return fail(c, 400, scoreResult.error);
   const difficulty = normalizeDifficulty('difficulty' in raw ? raw.difficulty : undefined);
+
+  // A run ends at most every few seconds; 10/min stops scripted spam.
+  if (!(await allow(keys.scoreRate(userId), 10, 60))) return fail(c, 429, 'too many scores');
 
   try {
     const { best, improved } = await submit(username, scoreResult.value);
