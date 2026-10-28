@@ -71,6 +71,18 @@ const SYNCED_KEYS = [
 
 const cache = Object.create(null);
 
+/**
+ * The cache only ever holds PRIVATE copies. Objects are cloned on the way in
+ * (set) and on the way out (get), so game code can never mutate cached data
+ * behind the store's back. WHY: Campaign mutates its state object in place
+ * and then calls store.set('campaign', sameObject) — if the cache held that
+ * same object, the "unchanged?" check below would always say yes and the
+ * save would silently never happen.
+ * Analogy: a library lends you a photocopy, never the archive original — and
+ * files a fresh copy when you hand pages back.
+ */
+const copy = v => (v !== null && typeof v === 'object' ? structuredClone(v) : v);
+
 function readLocal(key) {
     try {
         const v = localStorage.getItem(prefix + key);
@@ -132,14 +144,14 @@ export const store = {
     },
 
     get(key, fallback) {
-        return key in cache ? cache[key] : fallback;
+        return key in cache ? copy(cache[key]) : fallback;
     },
 
     set(key, value) {
         // Skip no-op writes (the hangar re-saves ship/HD on every boot): they'd
         // raise the unsynced flag and upload for nothing.
         if (key in cache && JSON.stringify(cache[key]) === JSON.stringify(value)) return;
-        cache[key] = value;
+        cache[key] = copy(value);
         writeLocal(key, value);
         if (SYNCED_KEYS.includes(key)) { markDirty(); sync(); }
     },
