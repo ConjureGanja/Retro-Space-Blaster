@@ -29,6 +29,25 @@
  *   field (see src/shared/validation.ts). Never trust this file to enforce rules.
  */
 
+import { context } from '@devvit/web/client';
+
+/**
+ * Who's playing, straight from Reddit's webview host — no network needed.
+ * WHY: identity must not depend on /api/init succeeding. If the API is slow
+ * or down, we still need the right account's local save slot (otherwise a
+ * signed-in player would load — and write to — the anonymous slot).
+ * Outside Reddit (`npm run local`) `context` is undefined → null.
+ * Analogy: your name badge is pinned to your shirt; you don't need the
+ * front desk's computer to be up to know whose locker to open.
+ */
+function hostIdentity() {
+  try {
+    return { username: context?.username ?? null, subreddit: context?.subredditName ?? null };
+  } catch {
+    return { username: null, subreddit: null };
+  }
+}
+
 /** How long to wait on the API before giving up and playing offline. */
 const INIT_TIMEOUT_MS = 4000;
 
@@ -96,11 +115,16 @@ export const Cloud = {
    * @returns {Promise<Record<string, unknown> | null>}
    */
   async init() {
+    // Identity first, from the host — works even if the request below fails.
+    const host = hostIdentity();
+    this.username = host.username;
+    this.subreddit = host.subreddit;
+
     const data = await request('/api/init', { timeoutMs: INIT_TIMEOUT_MS });
-    if (!data || data.type !== 'init') return null;
+    if (!data || data.type !== 'init') return null; // offline: keep host identity
     this.online = true;
-    this.username = data.username ?? null;
-    this.subreddit = data.subreddit ?? null;
+    this.username = data.username ?? host.username;
+    this.subreddit = data.subreddit ?? host.subreddit;
     this.leaderboard = Array.isArray(data.leaderboard) ? data.leaderboard : [];
     this.best = Number(data.best) || 0;
     return data.save && typeof data.save === 'object' ? data.save : null;
