@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import {
   MAX_SAVE_BYTES,
   MAX_SCORE,
+  SAVE_VERSION_KEY,
   normalizeDifficulty,
   validateSave,
   validateScore,
@@ -48,8 +49,80 @@ test('validateSave rejects non-objects', () => {
 });
 
 test('validateSave rejects oversized saves', () => {
-  const huge = { campaign: 'x'.repeat(MAX_SAVE_BYTES + 1) };
-  assert.equal(validateSave(huge).ok, false);
+  const huge = { campaign: { notes: 'x'.repeat(MAX_SAVE_BYTES + 1) } };
+  const result = validateSave(huge);
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.error.code, 'SAVE_TOO_LARGE');
+});
+
+test('validateSave validates known fields and preserves legitimate legacy saves', () => {
+  const save = {
+    difficulty: 'ace',
+    hd: false,
+    introSeen: true,
+    volMusic: '0.5',
+    volSfx: 1,
+    ship: 2,
+    theme: 'theme-neon',
+    hiscore: MAX_SCORE,
+    campaign: { unlocked: ['n1', 's1'], completed: { n1: 'A' }, victory: false },
+  };
+  assert.deepEqual(validateSave(save), { ok: true, value: { ...save, volMusic: 0.5 } });
+  assert.equal(validateSave({ ship: 'scout', campaign: {} }).ok, true);
+  for (const [key, values] of Object.entries({
+    difficulty: ['godmode', 1],
+    hd: [0, 'true', null],
+    introSeen: [1, {}],
+    volMusic: [-0.1, 1.1, Infinity, NaN, '', '2', '0x1'],
+    volSfx: [null, [], {}],
+    hiscore: [-1, 1.5, '100', MAX_SCORE + 1],
+    ship: ['', 'x'.repeat(65), {}, -1],
+    theme: [[], 'x'.repeat(65), 'bad theme'],
+    campaign: [
+      null,
+      [],
+      42,
+      'map',
+      { unlocked: {} },
+      { completed: [] },
+      { completed: { n1: ['A'] } },
+      { victory: 'yes' },
+    ],
+  })) {
+    for (const value of values) {
+      const result = validateSave({ [key]: value });
+      assert.equal(result.ok, false, `${key}: ${JSON.stringify(value)}`);
+      if (!result.ok) assert.equal(result.error.code, 'INVALID_SAVE');
+    }
+  }
+});
+
+test('validateSave bounds metadata and retains versioned deletions', () => {
+  const version = '0001700000000000-00000000-0000-4000-8000-000000000001';
+  const save = { [SAVE_VERSION_KEY]: { campaign: version } };
+  assert.deepEqual(validateSave(save), { ok: true, value: save });
+  for (const metadata of [
+    [],
+    null,
+    { unknown: version },
+    { campaign: 1 },
+    { campaign: 'newest' },
+  ]) {
+    assert.equal(validateSave({ [SAVE_VERSION_KEY]: metadata }).ok, false);
+  }
+});
+
+test('validateSave handles unserializable data and enforces the byte cap exactly', () => {
+  const cyclic: Record<string, unknown> = {};
+  cyclic.loop = cyclic;
+  assert.equal(validateSave({ campaign: cyclic }).ok, false);
+  assert.equal(validateSave({ campaign: { toJSON: () => [] } }).ok, false);
+  const overhead = JSON.stringify({ campaign: { notes: '' } }).length;
+  assert.equal(
+    validateSave({ campaign: { notes: 'x'.repeat(MAX_SAVE_BYTES - overhead) } }).ok,
+    true
+  );
+  assert.equal(validateSave({ campaign: { notes: 'é'.repeat(MAX_SAVE_BYTES) } }).ok, false);
 });
 
 test('normalizeDifficulty falls back to pilot', () => {

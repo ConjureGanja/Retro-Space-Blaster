@@ -16,8 +16,8 @@ export type LeaderboardEntry = {
 
 /**
  * Save blob synced per Reddit account. Values are loosely typed on purpose —
- * the game owns their meaning; the server only enforces size + key whitelist
- * (see validation.ts).
+ * the game owns their meaning; shared validation enforces known field shapes
+ * and size. Optional __versions metadata allows per-key merges and deletions.
  */
 export type SaveData = Record<string, unknown>;
 
