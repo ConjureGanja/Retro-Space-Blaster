@@ -26,16 +26,37 @@ import { Cloud } from './platform/cloud.js';
 let prefix = 'rsb_';
 
 /**
- * Give each Reddit account its own localStorage slot.
+ * Give each Reddit account (per subreddit) its own localStorage slot.
  * WHY: several Reddit accounts can share one browser. Without this, account B
  * would load account A's cached campaign at boot and then upload it as its own
- * cloud save. Analogy: separate lockers in a shared changing room — same
- * building, nobody walks off in someone else's kit.
+ * cloud save. The subreddit is part of the slot because Devvit's Redis — and
+ * so the cloud save — is per subreddit install.
+ * Analogy: separate lockers in a shared changing room — same building,
+ * nobody walks off in someone else's kit.
  * Logged-out viewers and `npm run local` keep the plain 'rsb_' slot.
  */
-function scopeToAccount(username) {
-    prefix = username ? `rsb_u_${username.toLowerCase()}_` : 'rsb_';
+function scopeToAccount(username, subreddit) {
+    if (!username) { prefix = 'rsb_'; return; }
+    const sub = (subreddit || 'any').toLowerCase();
+    prefix = `rsb_u_${sub}_${username.toLowerCase()}_`;
 }
+
+/**
+ * "Unsynced" marker: set on every write of a synced key, cleared only when the
+ * server confirms the upload. Lives in localStorage so it survives the tab
+ * closing mid-upload. WHY: if a save never reached the server (offline, error),
+ * the cloud copy is OLDER than this device's — so on the next boot this
+ * device's data must win, then get re-uploaded.
+ * Analogy: a "not yet filed" sticky note on the folder — whoever opens it next
+ * knows the copy in their hand beats the one in the cabinet.
+ */
+const DIRTY_KEY = '__unsynced';
+
+function markDirty() { writeLocal(DIRTY_KEY, true); }
+function markClean() { removeLocal(DIRTY_KEY); }
+
+/** Queue the current save for upload; clear the sticky note once it lands. */
+function sync() { Cloud.queueSave(snapshot(), markClean); }
 
 /**
  * Keys that make up a save file. Anything else passed to set() still works
@@ -83,16 +104,19 @@ export const store = {
         // Ask the server who's playing FIRST, so we read the right account's
         // local slot (never another account's leftovers). Offline → null.
         const remote = await Cloud.init();
-        scopeToAccount(Cloud.username);
+        scopeToAccount(Cloud.username, Cloud.subreddit);
 
         for (const key of SYNCED_KEYS) {
             const v = readLocal(key);
             if (v !== undefined) cache[key] = v;
         }
+        const unsynced = readLocal(DIRTY_KEY) === true;
 
         if (remote) {
             for (const key of SYNCED_KEYS) {
                 if (!(key in remote)) continue;
+                // Unsynced local progress beats the (older) cloud copy.
+                if (unsynced && key in cache && key !== 'hiscore') continue;
                 // Hi-score: never let an older device lower it.
                 cache[key] = key === 'hiscore'
                     ? Math.max(Number(cache.hiscore) || 0, Number(remote.hiscore) || 0)
@@ -102,6 +126,9 @@ export const store = {
         }
         // The leaderboard is authoritative for the account's best score.
         if (Cloud.best > (Number(cache.hiscore) || 0)) cache.hiscore = Cloud.best;
+
+        // Push the local-wins merge back up so the cloud catches up.
+        if (unsynced) sync();
     },
 
     get(key, fallback) {
@@ -109,14 +136,17 @@ export const store = {
     },
 
     set(key, value) {
+        // Skip no-op writes (the hangar re-saves ship/HD on every boot): they'd
+        // raise the unsynced flag and upload for nothing.
+        if (key in cache && JSON.stringify(cache[key]) === JSON.stringify(value)) return;
         cache[key] = value;
         writeLocal(key, value);
-        if (SYNCED_KEYS.includes(key)) Cloud.queueSave(snapshot());
+        if (SYNCED_KEYS.includes(key)) { markDirty(); sync(); }
     },
 
     remove(key) {
         delete cache[key];
         removeLocal(key);
-        if (SYNCED_KEYS.includes(key)) Cloud.queueSave(snapshot());
+        if (SYNCED_KEYS.includes(key)) { markDirty(); sync(); }
     }
 };

@@ -35,8 +35,23 @@ const INIT_TIMEOUT_MS = 4000;
 /** Coalesce rapid store.set() calls (e.g. dragging a volume slider) into one upload. */
 const SAVE_DEBOUNCE_MS = 1500;
 
+/** Retry a failed upload after 2s, 4s, 8s, 16s, 30s — then wait for the next change. */
+const RETRY_DELAYS_MS = [2000, 4000, 8000, 16000, 30000];
+
+/**
+ * Upload pipeline state. ONE request in flight at a time:
+ *   - `pending` is the newest snapshot not yet sent (older ones are simply
+ *     replaced — only the latest state matters),
+ *   - `inFlight` blocks a second POST until the first answers, so an older
+ *     request can never land after a newer one and overwrite it.
+ * Analogy: a single courier on the route. New parcels wait at the depot and
+ * only the most recent one goes out on the next run — never two couriers
+ * racing, where the slower (older) parcel arrives last and "wins".
+ */
 let saveTimer = null;
-let pendingSave = null;
+let pending = null; // { snapshot, onSynced }
+let inFlight = false;
+let attempt = 0;
 
 /**
  * fetch() with a timeout and JSON handling. Returns parsed JSON or null —
@@ -69,6 +84,8 @@ export const Cloud = {
   online: false,
   /** Logged-in Reddit username, or null for logged-out viewers / local play. */
   username: null,
+  /** Subreddit this post lives in (saves + leaderboard are per subreddit). */
+  subreddit: null,
   /** Last known top scores: [{ username, score }] */
   leaderboard: [],
   /** This player's best leaderboard score (0 if none / logged out). */
@@ -83,6 +100,7 @@ export const Cloud = {
     if (!data || data.type !== 'init') return null;
     this.online = true;
     this.username = data.username ?? null;
+    this.subreddit = data.subreddit ?? null;
     this.leaderboard = Array.isArray(data.leaderboard) ? data.leaderboard : [];
     this.best = Number(data.best) || 0;
     return data.save && typeof data.save === 'object' ? data.save : null;
@@ -92,16 +110,14 @@ export const Cloud = {
    * Schedule an upload of the full save blob. Only the latest snapshot is
    * sent — like autosave in an editor, not a keystroke log.
    * Logged-out viewers can't own a save, so we skip the request entirely.
+   * @param {Record<string, unknown>} snapshot
+   * @param {() => void} [onSynced]  called once the server has confirmed this snapshot
    */
-  queueSave(snapshot) {
+  queueSave(snapshot, onSynced) {
     if (!this.online || !this.username) return;
-    pendingSave = snapshot;
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      const body = { save: pendingSave };
-      pendingSave = null;
-      void request('/api/save', { method: 'POST', body });
-    }, SAVE_DEBOUNCE_MS);
+    pending = { snapshot, onSynced };
+    attempt = 0; // fresh data → fresh retry budget
+    schedule(SAVE_DEBOUNCE_MS);
   },
 
   /**
@@ -122,3 +138,37 @@ export const Cloud = {
     return data;
   },
 };
+
+/** (Re)arm the upload timer. */
+function schedule(delayMs) {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => void flush(), delayMs);
+}
+
+/** Send the newest pending snapshot, if any, unless a request is already out. */
+async function flush() {
+  if (inFlight || !pending) return;
+  const job = pending;
+  pending = null;
+  inFlight = true;
+  const ok = await request('/api/save', { method: 'POST', body: { save: job.snapshot } });
+  inFlight = false;
+
+  if (ok && ok.type === 'save') {
+    // Only mark clean if nothing newer was queued while this was in flight.
+    if (!pending) job.onSynced?.();
+    attempt = 0;
+  } else if (!pending) {
+    // Failed (offline, timeout, 429, 500…). Keep the snapshot and back off.
+    // store.js also keeps an "unsynced" flag in localStorage, so even if the
+    // tab closes before a retry succeeds, the next boot won't let the older
+    // cloud copy overwrite this progress.
+    pending = job;
+    const delay = RETRY_DELAYS_MS[attempt];
+    attempt++;
+    if (delay !== undefined) schedule(delay);
+    return;
+  }
+  // Something newer arrived meanwhile → send it now (no extra debounce).
+  if (pending) void flush();
+}

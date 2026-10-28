@@ -19,12 +19,12 @@ import type {
   LeaderboardResponse,
   SaveResponse,
   ScoreResponse,
-} from '../../shared/api';
-import { normalizeDifficulty, validateSave, validateScore } from '../../shared/validation';
-import { getBest, getTop, submit } from '../core/leaderboard';
-import { loadSave, writeSave } from '../core/saves';
-import { allow } from '../core/rate-limit';
-import { keys } from '../core/keys';
+} from '../../shared/api.ts';
+import { normalizeDifficulty, validateSave, validateScore } from '../../shared/validation.ts';
+import { getBest, getTop, submit } from '../core/leaderboard.ts';
+import { loadSave, writeSave } from '../core/saves.ts';
+import { allow } from '../core/rate-limit.ts';
+import { keys } from '../core/keys.ts';
 
 export const api = new Hono();
 
@@ -55,6 +55,7 @@ api.get('/init', async (c) => {
       type: 'init',
       postId,
       username: username ?? null,
+      subreddit: context.subredditName,
       save,
       best,
       leaderboard,

@@ -27,6 +27,8 @@ export type InitResponse = {
   postId: string;
   /** null when the viewer is logged out. */
   username: string | null;
+  /** Saves + leaderboard are per subreddit install; the client scopes its cache by this. */
+  subreddit: string;
   save: SaveData | null;
   best: number;
   leaderboard: LeaderboardEntry[];
