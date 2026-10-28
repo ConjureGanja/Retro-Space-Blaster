@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "../dist/types/client",
+    "tsBuildInfoFile": "../dist/types/client/tsconfig.tsbuildinfo",
+    "customConditions": ["browser"],
+    "rootDir": "../src/client"
+  },
+  "//": "Only the TypeScript glue (splash.ts) is type-checked; the game itself is plain JS (src/client/game).",
+  "include": ["../src/client/**/*.ts"],
+  "references": [{ "path": "./tsconfig.shared.json" }]
+}

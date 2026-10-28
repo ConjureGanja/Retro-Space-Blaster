@@ -14,6 +14,7 @@
 import { CONSTANTS, STATE, Runtime } from './config.js';
 import { Sound } from './audio.js';
 import { store } from './store.js';
+import { Cloud } from './platform/cloud.js';
 import { input } from './input.js';
 import { FX } from './fx.js';
 import { SHIPS } from './ships.js';
@@ -1087,6 +1088,8 @@ export const Game = {
                     const hi = store.get('hiscore', 0);
                     if (this.score > hi) { store.set('hiscore', this.score); this.newRecord = true; }
                     else this.newRecord = false;
+                    // Post the run to the subreddit leaderboard (no-op offline).
+                    void Cloud.submitScore(this.score, Runtime.difficulty.id);
                     UI.showGameOver();
                 } else {
                     const respawn = createShip(ship.shipDef);
@@ -1303,6 +1306,9 @@ export const Game = {
         const results = this.buildLevelResults();
         const hi = store.get('hiscore', 0);
         if (this.score > hi) { store.set('hiscore', this.score); results.newRecord = true; }
+        // Score carries across nodes within a run, so every clear is a valid
+        // leaderboard checkpoint — the server only keeps the player's best.
+        void Cloud.submitScore(this.score, Runtime.difficulty.id);
         UI.showLevelComplete(results);
     },
 

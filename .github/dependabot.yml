@@ -1,0 +1,38 @@
+# Dependabot opens PRs when dependencies have updates or security fixes.
+# CI runs on each PR, so a green check = safe to merge.
+# Grouped so Devvit's ~15 packages arrive as ONE PR, not fifteen.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: America/New_York
+    open-pull-requests-limit: 5
+    ignore:
+      # @types/node should track the Node major in .nvmrc, not race ahead.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+    groups:
+      devvit:
+        patterns: ['devvit', '@devvit/*']
+      lint-format:
+        patterns: ['eslint', '@eslint/*', 'typescript-eslint', 'globals', 'prettier']
+      build:
+        patterns: ['vite', 'typescript', 'sharp']
+      server:
+        patterns: ['hono', '@hono/*']
+
+  # Keeps the pinned action SHAs in .github/workflows up to date.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: America/New_York
+    groups:
+      actions:
+        patterns: ['*']

@@ -1,4 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+/* Font: 'Press Start 2P' is bundled via @fontsource (imported in game/main.js).
+   Reddit's webview blocks third-party requests, so Google Fonts can't load here. */
 
 :root {
     --bg-color: #050505;
@@ -151,7 +152,7 @@ canvas {
 #menu-main {
     background:
         linear-gradient(rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.85)),
-        url('../assets/sprites/startmenubg.svg') center / cover no-repeat,
+        url('/assets/sprites/startmenubg.webp') center / cover no-repeat,
         var(--overlay-bg);
 }
 
@@ -266,7 +267,7 @@ h2 { font-size: 20px; margin-bottom: 15px; color: #fff; }
 #screen-splash {
     background:
         linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.78)),
-        url('../assets/sprites/Retro Space Blasters.png') center / cover no-repeat,
+        url('/assets/sprites/Retro Space Blasters.webp') center / cover no-repeat,
         #000;
     cursor: pointer;
     justify-content: flex-end;

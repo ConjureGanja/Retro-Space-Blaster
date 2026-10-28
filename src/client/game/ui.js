@@ -53,7 +53,7 @@ export const UI = {
             const img = Sprites.get(key);
             $('ship-preview').src = (img instanceof HTMLCanvasElement)
                 ? img.toDataURL()
-                : `assets/sprites/${key}.svg`;
+                : `/assets/sprites/${key}.webp`;
             $('ship-name').innerText = ship.name;
             $('ship-name').style.color = ship.stats.color;
             $('ship-role').innerText = ship.role;
@@ -85,6 +85,9 @@ export const UI = {
         $('chk-hd-sprites').addEventListener('change', (e) => {
             useHD = e.target.checked;
             updatePreview();
+            // HD art is downloaded on first use (see Sprites.loadHD). Refresh
+            // the hangar preview once it lands so the HD ship pops in.
+            if (useHD) Sprites.loadHD().then(updatePreview);
         });
         updatePreview();
         // Re-render once sprites finish loading so the trimmed art appears.

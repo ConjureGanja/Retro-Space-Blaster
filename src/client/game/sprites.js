@@ -1,11 +1,17 @@
 /**
- * SVG sprite loader + cache.
+ * Sprite loader + cache.
  *
- * To add a new sprite: drop the .svg in assets/sprites/ and add one line to
- * SPRITE_FILES below. Then draw it with `drawSprite(ctx, 'key', x, y, size, rot)`
- * or grab the raw Image via `Sprites.get('key')`.
+ * To add a new sprite: drop the master file (SVG/PNG) in art/sprites/, add one
+ * line to SPRITE_FILES below pointing at `/assets/sprites/<name>.webp`, then
+ * run `npm run art` (dev/build scripts run it for you). Draw it with
+ * `drawSprite(ctx, 'key', x, y, size, rot)` or grab it via `Sprites.get('key')`.
  *
- * SVGs are loaded as <img> elements so they can be drawn straight to canvas.
+ * WHY WEBP: the masters are huge (one HD boss SVG is 19 MB of embedded PNG),
+ * but this loader downsamples everything to ≤640px anyway. scripts/optimize-art.mjs
+ * pre-renders each master to a ~50 KB WebP at 1280px so Reddit players aren't
+ * downloading pixels we immediately throw away.
+ *
+ * Images are loaded as <img> elements so they can be drawn straight to canvas.
  * All art is auto-trimmed at load time (rendered to an offscreen canvas and
  * cropped to its opaque bounds) since most files center small art inside a
  * large 1440x810 frame. drawSprite() preserves aspect ratio, scaling the
@@ -16,71 +22,77 @@
  * flipping Runtime.useHD (the hangar's HD SPRITES toggle) switches the whole
  * game's art live — enemies, bosses, powerups, effects — with zero per-callsite
  * changes.
+ *
+ * LAZY HD: only the standard set loads at boot. The HD set is fetched the
+ * first time a player turns HD on (Sprites.loadHD()). Until each HD image
+ * finishes, resolveKey() quietly keeps drawing the standard version.
+ * Analogy: a restaurant preps the regular menu before doors open, and only
+ * fires up the tasting-menu station when someone actually orders it.
  */
 
 import { Runtime } from './config.js';
 
 const SPRITE_FILES = {
-    powerupWeapon:   'assets/sprites/powerup-weapon.svg',
-    powerupWeaponHD: 'assets/sprites/powerup-weaponHD.svg',
-    powerupShield:   'assets/sprites/powerup-shield.svg',
-    powerupShieldHD: 'assets/sprites/powerup-shieldHD.svg',
-    powerupHealth:   'assets/sprites/powerup-health.svg',
-    powerupHealthHD: 'assets/sprites/powerup-healthHD.svg',
-    powerupSpeed:    'assets/sprites/powerup-speed.svg',
-    powerupSpeedHD:  'assets/sprites/powerup-speedHD.svg',
-    shieldEffect:    'assets/sprites/shield-effect.svg',
-    shieldEffectHD:  'assets/sprites/shield-effectHD.svg',
-    bossDreadnought:   'assets/sprites/boss-dreadnought.svg',
-    bossDreadnoughtHD: 'assets/sprites/boss-dreadnoughtHD.svg',
-    bossMothership:    'assets/sprites/boss-mothership.svg',
-    bossMothershipHD:  'assets/sprites/boss-mothershipHD.svg',
-    bossSuperMothership:   'assets/sprites/boss-SuperMegaMothership.svg',
-    bossSuperMothershipHD: 'assets/sprites/boss-SuperMegaMothershipHD.svg',
-    superShield:     'assets/sprites/superbossshieldwopening-spinningshield.svg',
-    explosionRing:   'assets/sprites/explosion-ring.svg',
-    explosionRingHD: 'assets/sprites/explosion-ringHD.svg',
-    fireExplosion:   'assets/sprites/fireexplosion.svg',
-    bulletSaucer:    'assets/sprites/enemy-saucer-bulletHD.svg',
-    enemySaucer:     'assets/sprites/enemy-saucer.svg',
-    enemySaucerHD:   'assets/sprites/enemy-saucerHD.svg',
-    enemyCharger:    'assets/sprites/enemy-charger.svg',
-    enemyChargerHD:  'assets/sprites/enemy-chargerHD.svg',
-    enemyTank:       'assets/sprites/enemy-tank.svg',
-    enemyTankHD:     'assets/sprites/enemy-tankHD.svg',
-    enemySwarmer:    'assets/sprites/enemy-swarmer.svg',
-    enemySwarmerHD:  'assets/sprites/enemy-swarmerHD.svg',
-    enemySniper:     'assets/sprites/enemy-sniper.svg',
-    enemySniperHD:   'assets/sprites/enemy-sniperHD.svg',
-    playership1:     'assets/sprites/playership1.svg',
-    playership1HD:   'assets/sprites/playership1HD.svg',
-    playership2:     'assets/sprites/playership2.svg',
-    playership2HD:   'assets/sprites/playership2HD.svg',
-    playership3:     'assets/sprites/playership3.svg',
-    playership3HD:   'assets/sprites/playership3HD.svg',
-    playership4:     'assets/sprites/playership4.svg',
-    playership4HD:   'assets/sprites/playership4HD.svg',
-    playership5:     'assets/sprites/playership5.svg',
-    playership5HD:   'assets/sprites/playership5HD.svg',
+    powerupWeapon:   '/assets/sprites/powerup-weapon.webp',
+    powerupWeaponHD: '/assets/sprites/powerup-weaponHD.webp',
+    powerupShield:   '/assets/sprites/powerup-shield.webp',
+    powerupShieldHD: '/assets/sprites/powerup-shieldHD.webp',
+    powerupHealth:   '/assets/sprites/powerup-health.webp',
+    powerupHealthHD: '/assets/sprites/powerup-healthHD.webp',
+    powerupSpeed:    '/assets/sprites/powerup-speed.webp',
+    powerupSpeedHD:  '/assets/sprites/powerup-speedHD.webp',
+    shieldEffect:    '/assets/sprites/shield-effect.webp',
+    shieldEffectHD:  '/assets/sprites/shield-effectHD.webp',
+    bossDreadnought:   '/assets/sprites/boss-dreadnought.webp',
+    bossDreadnoughtHD: '/assets/sprites/boss-dreadnoughtHD.webp',
+    bossMothership:    '/assets/sprites/boss-mothership.webp',
+    bossMothershipHD:  '/assets/sprites/boss-mothershipHD.webp',
+    bossSuperMothership:   '/assets/sprites/boss-SuperMegaMothership.webp',
+    bossSuperMothershipHD: '/assets/sprites/boss-SuperMegaMothershipHD.webp',
+    superShield:     '/assets/sprites/superbossshieldwopening-spinningshield.webp',
+    explosionRing:   '/assets/sprites/explosion-ring.webp',
+    explosionRingHD: '/assets/sprites/explosion-ringHD.webp',
+    fireExplosion:   '/assets/sprites/fireexplosion.webp',
+    bulletSaucer:    '/assets/sprites/enemy-saucer-bulletHD.webp',
+    enemySaucer:     '/assets/sprites/enemy-saucer.webp',
+    enemySaucerHD:   '/assets/sprites/enemy-saucerHD.webp',
+    enemyCharger:    '/assets/sprites/enemy-charger.webp',
+    enemyChargerHD:  '/assets/sprites/enemy-chargerHD.webp',
+    enemyTank:       '/assets/sprites/enemy-tank.webp',
+    enemyTankHD:     '/assets/sprites/enemy-tankHD.webp',
+    enemySwarmer:    '/assets/sprites/enemy-swarmer.webp',
+    enemySwarmerHD:  '/assets/sprites/enemy-swarmerHD.webp',
+    enemySniper:     '/assets/sprites/enemy-sniper.webp',
+    enemySniperHD:   '/assets/sprites/enemy-sniperHD.webp',
+    playership1:     '/assets/sprites/playership1.webp',
+    playership1HD:   '/assets/sprites/playership1HD.webp',
+    playership2:     '/assets/sprites/playership2.webp',
+    playership2HD:   '/assets/sprites/playership2HD.webp',
+    playership3:     '/assets/sprites/playership3.webp',
+    playership3HD:   '/assets/sprites/playership3HD.webp',
+    playership4:     '/assets/sprites/playership4.webp',
+    playership4HD:   '/assets/sprites/playership4HD.webp',
+    playership5:     '/assets/sprites/playership5.webp',
+    playership5HD:   '/assets/sprites/playership5HD.webp',
 
     // Roguelite upgrade card icons (keys match upgrade `icon` in upgrades.js)
-    upgDouble:       'assets/sprites/statboost-twin cannons.svg',
-    upgSpread:       'assets/sprites/statboost-spread module.svg',
-    upgTail:         'assets/sprites/statboost-Tail Gunner.svg',
-    upgRate:         'assets/sprites/statboost-overclock.svg',
-    upgSpeed:        'assets/sprites/statboost-Thruster Boost.svg',
-    upgRange:        'assets/sprites/statboost-longbarrel.svg',
-    upgFlak:         'assets/sprites/statboost-flakcannon.svg',
-    upgPierce:       'assets/sprites/wepmod-railgunrounds.svg',
-    upgTracer:       'assets/sprites/weomod-tracerrounds.svg',
-    upgTitan:        'assets/sprites/wepmod-titancaliber.svg',
-    upgSeeker:       'assets/sprites/wepmod-seekermissiles.svg',
-    upgExplosive:    'assets/sprites/wepmod-highexplosive.svg',
-    upgPrism:        'assets/sprites/wepmod-prismaticcore.svg',
-    upgBouncy:       'assets/sprites/wepmod-pinballoptics.svg',
-    upgWobbly:       'assets/sprites/wepmod-phasewobble.svg',
-    upgOrbitals:     'assets/sprites/wepmod-plasmadrones.svg',
-    upgLife:         'assets/sprites/extralife-hullrepair.svg'
+    upgDouble:       '/assets/sprites/statboost-twin cannons.webp',
+    upgSpread:       '/assets/sprites/statboost-spread module.webp',
+    upgTail:         '/assets/sprites/statboost-Tail Gunner.webp',
+    upgRate:         '/assets/sprites/statboost-overclock.webp',
+    upgSpeed:        '/assets/sprites/statboost-Thruster Boost.webp',
+    upgRange:        '/assets/sprites/statboost-longbarrel.webp',
+    upgFlak:         '/assets/sprites/statboost-flakcannon.webp',
+    upgPierce:       '/assets/sprites/wepmod-railgunrounds.webp',
+    upgTracer:       '/assets/sprites/weomod-tracerrounds.webp',
+    upgTitan:        '/assets/sprites/wepmod-titancaliber.webp',
+    upgSeeker:       '/assets/sprites/wepmod-seekermissiles.webp',
+    upgExplosive:    '/assets/sprites/wepmod-highexplosive.webp',
+    upgPrism:        '/assets/sprites/wepmod-prismaticcore.webp',
+    upgBouncy:       '/assets/sprites/wepmod-pinballoptics.webp',
+    upgWobbly:       '/assets/sprites/wepmod-phasewobble.webp',
+    upgOrbitals:     '/assets/sprites/wepmod-plasmadrones.webp',
+    upgLife:         '/assets/sprites/extralife-hullrepair.webp'
 };
 
 // These upgrade icons ship as full trading-card art (icon square on top,
@@ -146,11 +158,16 @@ export const Sprites = {
     images: {},
     ready: false,
 
-    /** Preload every registered sprite. Resolves once all have loaded (or errored). */
-    loadAll() {
-        const entries = Object.entries(SPRITE_FILES);
-        return Promise.all(entries.map(([key, src]) => new Promise(resolve => {
+    /** Keys whose name ends in "HD" belong to the lazily-loaded HD set. */
+    _isHDKey(key) {
+        return key.endsWith('HD');
+    },
+
+    /** Load one sprite: decode → trim → (optional) card crop → cache. */
+    _loadOne(key, src) {
+        return new Promise(resolve => {
             const img = new Image();
+            img.decoding = 'async';
             img.onload = () => {
                 let trimmed = trimImage(img);
                 if (trimmed && key in CARD_CROP) trimmed = cropTopSquare(trimmed, CARD_CROP[key]);
@@ -160,7 +177,31 @@ export const Sprites = {
             img.onerror = () => { console.warn(`[sprites] failed to load ${src}`); resolve(); };
             img.src = src;
             this.images[key] = img;
-        }))).then(() => { this.ready = true; });
+        });
+    },
+
+    /**
+     * Preload the standard (non-HD) sprite set. Resolves once all have loaded
+     * (or errored — a missing sprite should never block the game from booting).
+     */
+    loadAll() {
+        const entries = Object.entries(SPRITE_FILES).filter(([key]) => !this._isHDKey(key));
+        return Promise.all(entries.map(([key, src]) => this._loadOne(key, src)))
+            .then(() => { this.ready = true; });
+    },
+
+    _hdPromise: null,
+
+    /**
+     * Load the HD set on demand. Safe to call repeatedly — the first call
+     * starts the downloads, later calls just get the same promise back.
+     */
+    loadHD() {
+        if (!this._hdPromise) {
+            const entries = Object.entries(SPRITE_FILES).filter(([key]) => this._isHDKey(key));
+            this._hdPromise = Promise.all(entries.map(([key, src]) => this._loadOne(key, src)));
+        }
+        return this._hdPromise;
     },
 
     get(key) {
@@ -173,6 +214,13 @@ export const Sprites = {
      * explicit names) fall through untouched.
      */
     resolveKey(key) {
+        // Explicit HD key (e.g. the player's 'playership1HD') whose lazy
+        // download hasn't finished yet → draw the standard art meanwhile, so
+        // the ship never blinks out of existence while HD streams in.
+        if (key.endsWith('HD') && !this.isReady(key)) {
+            const base = key.slice(0, -2);
+            return this.isReady(base) ? base : key;
+        }
         if (Runtime.useHD && !key.endsWith('HD')) {
             const hd = key + 'HD';
             if (this.isReady(hd)) return hd;

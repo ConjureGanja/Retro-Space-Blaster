@@ -1,0 +1,53 @@
+{
+  "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+  "name": "retro-space-blaster",
+  "marketingAssets": {
+    "icon": "marketing/icon.png"
+  },
+  "permissions": {
+    "redis": true,
+    "reddit": true,
+    "http": {
+      "enable": false
+    }
+  },
+  "post": {
+    "dir": "dist/client",
+    "entrypoints": {
+      "default": {
+        "entry": "splash.html",
+        "styles": {
+          "height": "tall",
+          "backgroundColor": "#05060fFF",
+          "backgroundColorDark": "#05060fFF"
+        }
+      },
+      "game": {
+        "entry": "game.html"
+      }
+    }
+  },
+  "server": {
+    "dir": "dist/server",
+    "entry": "index.cjs"
+  },
+  "menu": {
+    "items": [
+      {
+        "label": "Post Retro Space Blaster",
+        "description": "Create a new playable Retro Space Blaster post",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/post-create"
+      }
+    ]
+  },
+  "triggers": {
+    "onAppInstall": "/internal/triggers/on-app-install"
+  },
+  "scripts": {
+    "dev": "vite build --watch --mode development",
+    "build": "vite build"
+  },
+  "sourceIgnores": ["art/**", "legacy/**"]
+}

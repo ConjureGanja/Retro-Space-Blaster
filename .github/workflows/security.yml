@@ -1,0 +1,70 @@
+# Security scanning — three layers, all free for public repos:
+#   1. CodeQL           static analysis: finds injection, XSS, unsafe patterns in our JS/TS
+#   2. Dependency review blocks PRs that add a dependency with a known HIGH vuln
+#                        (runtime deps only — dev tooling like the Devvit CLI runs on your PC, not on Reddit)
+#   3. Gitleaks          scans commits for API keys / tokens accidentally committed
+#
+# Analogy: CodeQL checks the building's wiring, dependency review checks the
+# materials delivered to site, Gitleaks checks nobody taped the keys to the door.
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '23 9 * * 1' # Mondays 09:23 UTC — catches newly disclosed issues in old code
+
+permissions:
+  contents: read
+
+jobs:
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write # upload results to the Security tab
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+          config: |
+            paths-ignore:
+              - legacy
+              - art
+              - dist
+      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+          fail-on-scopes: runtime
+          comment-summary-in-pr: never
+
+  gitleaks:
+    name: Secret scan (Gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # scan full history, not just the last commit
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
