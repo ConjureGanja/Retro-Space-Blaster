@@ -19,7 +19,23 @@
 
 import { Cloud } from './platform/cloud.js';
 
-const PREFIX = 'rsb_';
+/**
+ * localStorage key prefix. Starts as the shared/anonymous slot ('rsb_') and is
+ * narrowed to one Reddit account in hydrate() — see scopeToAccount().
+ */
+let prefix = 'rsb_';
+
+/**
+ * Give each Reddit account its own localStorage slot.
+ * WHY: several Reddit accounts can share one browser. Without this, account B
+ * would load account A's cached campaign at boot and then upload it as its own
+ * cloud save. Analogy: separate lockers in a shared changing room — same
+ * building, nobody walks off in someone else's kit.
+ * Logged-out viewers and `npm run local` keep the plain 'rsb_' slot.
+ */
+function scopeToAccount(username) {
+    prefix = username ? `rsb_u_${username.toLowerCase()}_` : 'rsb_';
+}
 
 /**
  * Keys that make up a save file. Anything else passed to set() still works
@@ -36,7 +52,7 @@ const cache = Object.create(null);
 
 function readLocal(key) {
     try {
-        const v = localStorage.getItem(PREFIX + key);
+        const v = localStorage.getItem(prefix + key);
         return v === null ? undefined : JSON.parse(v);
     } catch {
         return undefined; // private mode / blocked storage / corrupt JSON
@@ -44,11 +60,11 @@ function readLocal(key) {
 }
 
 function writeLocal(key, value) {
-    try { localStorage.setItem(PREFIX + key, JSON.stringify(value)); } catch { /* private mode */ }
+    try { localStorage.setItem(prefix + key, JSON.stringify(value)); } catch { /* private mode */ }
 }
 
 function removeLocal(key) {
-    try { localStorage.removeItem(PREFIX + key); } catch { /* private mode */ }
+    try { localStorage.removeItem(prefix + key); } catch { /* private mode */ }
 }
 
 /** Snapshot of everything that belongs in the cloud save. */
@@ -64,12 +80,16 @@ export const store = {
      * player starts fresh with defaults.
      */
     async hydrate() {
+        // Ask the server who's playing FIRST, so we read the right account's
+        // local slot (never another account's leftovers). Offline → null.
+        const remote = await Cloud.init();
+        scopeToAccount(Cloud.username);
+
         for (const key of SYNCED_KEYS) {
             const v = readLocal(key);
             if (v !== undefined) cache[key] = v;
         }
 
-        const remote = await Cloud.init();
         if (remote) {
             for (const key of SYNCED_KEYS) {
                 if (!(key in remote)) continue;
