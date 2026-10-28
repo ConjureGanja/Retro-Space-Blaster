@@ -33,7 +33,7 @@ Record _where_ a secret lives, never the secret itself.
 
 | Tool       | Version | Notes                                       |
 | ---------- | ------- | ------------------------------------------- |
-| Node.js    | 24 LTS  | `.nvmrc`; minimum 22.12                     |
+| Node.js    | 24 LTS  | `.nvmrc`; minimum 22.13 (ESLint 10)         |
 | Devvit     | 0.15.1  | `devvit`, `@devvit/web`, `@devvit/start`    |
 | Vite       | 8.3.5   | Build via `@devvit/start/vite` plugin       |
 | TypeScript | 6.0.3   | Server/shared/splash only; game is plain JS |

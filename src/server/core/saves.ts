@@ -1,6 +1,6 @@
 import { redis } from '@devvit/web/server';
-import type { SaveData } from '../../shared/api';
-import { keys } from './keys';
+import type { SaveData } from '../../shared/api.ts';
+import { keys } from './keys.ts';
 
 /**
  * Cloud saves: one JSON blob per Reddit account (keyed by userId, which

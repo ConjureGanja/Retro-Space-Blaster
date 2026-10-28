@@ -32,7 +32,7 @@ find the secrets, and deliver one final package marked RETURN TO SENDER.
 
 Same thing from any terminal: `npm ci`, then `npm run local | dev | check | build | deploy | launch`.
 
-Requires **Node.js 22.12+** (24 LTS recommended — see `.nvmrc`).
+Requires **Node.js 22.13+** (24 LTS recommended — see `.nvmrc`).
 
 ## How it fits together
 

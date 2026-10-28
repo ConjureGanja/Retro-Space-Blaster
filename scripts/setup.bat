@@ -19,12 +19,19 @@ if errorlevel 1 (
   echo   Node.js not found. Install Node 24 LTS from https://nodejs.org then re-run.
   goto :fail
 )
-for /f "tokens=1 delims=." %%v in ('node -p "process.versions.node"') do set NODE_MAJOR=%%v
-if %NODE_MAJOR% LSS 22 (
-  echo   Node %NODE_MAJOR% is too old. Need 22.12+ ^(24 LTS recommended^).
+REM Supported: 22.13+ or 24+ (ESLint 10 needs ^22.13 ^|^| ^>=24; Node 23 is not LTS).
+for /f "tokens=1,2 delims=." %%a in ('node -p "process.versions.node"') do (
+  set NODE_MAJOR=%%a
+  set NODE_MINOR=%%b
+)
+set NODE_OK=0
+if %NODE_MAJOR% GEQ 24 set NODE_OK=1
+if %NODE_MAJOR% EQU 22 if %NODE_MINOR% GEQ 13 set NODE_OK=1
+if %NODE_OK%==0 (
+  echo   Node %NODE_MAJOR%.%NODE_MINOR% is not supported. Install Node 24 LTS from https://nodejs.org
   goto :fail
 )
-echo   Node major version %NODE_MAJOR% - OK
+echo   Node %NODE_MAJOR%.%NODE_MINOR% - OK
 
 echo.
 echo [2/3] Installing dependencies (npm ci)...
