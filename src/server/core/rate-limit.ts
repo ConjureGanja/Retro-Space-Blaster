@@ -1,5 +1,8 @@
 import { redis } from '@devvit/web/server';
 
+/** The Redis calls this limiter needs (typed from the real client; tests pass a fake). */
+export type CounterDb = Pick<typeof redis, 'incrBy' | 'expire' | 'expireTime'>;
+
 /**
  * Fixed-window rate limiter: allow `limit` hits per `windowSeconds` per key.
  *
@@ -19,16 +22,21 @@ import { redis } from '@devvit/web/server';
  *
  * @returns true if the request is allowed.
  */
-export async function allow(key: string, limit: number, windowSeconds: number): Promise<boolean> {
-  const count = await redis.incrBy(key, 1);
+export async function allow(
+  key: string,
+  limit: number,
+  windowSeconds: number,
+  db: CounterDb = redis
+): Promise<boolean> {
+  const count = await db.incrBy(key, 1);
   if (count === 1) {
-    await redis.expire(key, windowSeconds);
+    await db.expire(key, windowSeconds);
     return true;
   }
   if (count <= limit) return true;
 
   // About to refuse: make sure this counter can actually expire.
-  const expiresAt = await redis.expireTime(key);
-  if (expiresAt < 0) await redis.expire(key, windowSeconds);
+  const expiresAt = await db.expireTime(key);
+  if (expiresAt < 0) await db.expire(key, windowSeconds);
   return false;
 }

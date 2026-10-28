@@ -18,6 +18,22 @@ export function initInput(canvas) {
     canvas.addEventListener('mouseup',   e => { if (e.button === 0) input.clickLeft = false; if (e.button === 2) input.clickRight = false; });
     canvas.addEventListener('contextmenu', e => e.preventDefault()); // Stop right-click menu
 
+    // Releases must be heard EVERYWHERE, not just on the canvas: if the button
+    // goes up over a menu overlay (e.g. the upgrade picker that pops mid-fight)
+    // or outside the game, a canvas-only listener never sees it and the ship
+    // keeps firing / Chrono Field keeps draining with no button held.
+    // Analogy: a dead-man's switch — let go anywhere and the train stops.
+    window.addEventListener('mouseup', e => {
+        if (e.button === 0) input.clickLeft = false;
+        if (e.button === 2) input.clickRight = false;
+    });
+    // Losing focus (alt-tab, Reddit's UI taking over, tab hidden) drops any
+    // held input — the matching mouseup may never arrive at all.
+    const releaseAll = () => { input.clickLeft = false; input.clickRight = false; };
+    window.addEventListener('blur', releaseAll);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); });
+    canvas.addEventListener('touchcancel', releaseAll);
+
     // Touch support mimicking the mouse
     canvas.addEventListener('touchstart', e => {
         e.preventDefault();

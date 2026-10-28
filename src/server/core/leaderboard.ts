@@ -2,6 +2,25 @@ import { redis } from '@devvit/web/server';
 import type { LeaderboardEntry } from '../../shared/api.ts';
 import { keys } from './keys.ts';
 
+/**
+ * The slice of Redis this module needs, derived from the real client's types.
+ * Functions take it as an optional last parameter (default: the real
+ * `redis`), so unit tests can pass a fake that the COMPILER checks against
+ * the real API — no casts.
+ * Analogy: a socket with a standard plug shape — the wall power and the
+ * bench power supply both fit, and nothing else does.
+ */
+type RedisLike = typeof redis;
+export type LeaderboardTx = {
+  unwatch(): Promise<unknown>;
+  multi(): Promise<void>;
+  zAdd(key: string, ...members: Array<{ member: string; score: number }>): Promise<unknown>;
+  exec(): Promise<unknown>;
+};
+export type LeaderboardDb = Pick<RedisLike, 'zScore' | 'zRange'> & {
+  watch(key: string): Promise<LeaderboardTx>;
+};
+
 /** How many rows the game + splash show. */
 export const TOP_N = 10;
 
@@ -10,8 +29,11 @@ export const TOP_N = 10;
  * Redis sorted sets keep members ordered by score at write time, so this read
  * is O(log n + N) no matter how many players the subreddit has.
  */
-export async function getTop(limit = TOP_N): Promise<LeaderboardEntry[]> {
-  const rows = await redis.zRange(keys.leaderboard(), 0, limit - 1, {
+export async function getTop(
+  limit = TOP_N,
+  db: LeaderboardDb = redis
+): Promise<LeaderboardEntry[]> {
+  const rows = await db.zRange(keys.leaderboard(), 0, limit - 1, {
     by: 'rank',
     reverse: true,
   });
@@ -19,8 +41,8 @@ export async function getTop(limit = TOP_N): Promise<LeaderboardEntry[]> {
 }
 
 /** A player's current best (0 if they've never posted a score). */
-export async function getBest(username: string): Promise<number> {
-  return (await redis.zScore(keys.leaderboard(), username)) ?? 0;
+export async function getBest(username: string, db: LeaderboardDb = redis): Promise<number> {
+  return (await db.zScore(keys.leaderboard(), username)) ?? 0;
 }
 
 /** How many times to retry a submission that lost a race with another write. */
@@ -42,12 +64,13 @@ const MAX_TX_ATTEMPTS = 5;
  */
 export async function submit(
   username: string,
-  score: number
+  score: number,
+  db: LeaderboardDb = redis
 ): Promise<{ best: number; improved: boolean }> {
   const key = keys.leaderboard();
   for (let attempt = 0; attempt < MAX_TX_ATTEMPTS; attempt++) {
-    const tx = await redis.watch(key);
-    const previous = (await redis.zScore(key, username)) ?? 0;
+    const tx = await db.watch(key);
+    const previous = (await db.zScore(key, username)) ?? 0;
     if (score <= previous) {
       await tx.unwatch();
       return { best: previous, improved: false };
