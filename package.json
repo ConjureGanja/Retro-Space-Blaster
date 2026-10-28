@@ -1,0 +1,47 @@
+{
+  "private": true,
+  "name": "retro-space-blaster",
+  "version": "0.2.0",
+  "description": "Retro Space Blaster: Roguelite Edition \u2014 a vector-style arcade shooter with stacking roguelite upgrades, playable as a Reddit Devvit Web app.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": "^22.13.0 || >=24"
+  },
+  "scripts": {
+    "art": "node scripts/optimize-art.mjs",
+    "build": "npm run art && vite build",
+    "check": "npm run test:types && npm run lint && npm run format:check && npm run test:unit",
+    "deploy": "npm run check && npm run art && devvit upload",
+    "dev": "npm run art && devvit playtest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "launch": "npm run check && npm run art && devvit publish",
+    "launch:public": "npm run check && npm run art && devvit publish --public",
+    "lint": "eslint .",
+    "local": "npm run art && vite --config vite.local.config.ts",
+    "login": "devvit login",
+    "logs": "devvit logs",
+    "test:types": "tsc --build",
+    "test:unit": "node --experimental-strip-types --no-warnings=ExperimentalWarning --test \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@devvit/start": "0.15.1",
+    "@devvit/web": "0.15.1",
+    "@fontsource/press-start-2p": "5.3.0",
+    "@hono/node-server": "2.1.5",
+    "hono": "4.13.14"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.2",
+    "devvit": "0.15.1",
+    "eslint": "10.13.0",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "sharp": "0.35.5",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vite": "8.3.5"
+  }
+}

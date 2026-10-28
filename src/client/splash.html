@@ -1,0 +1,39 @@
+<!doctype html>
+<!--
+  Feed card (inline view). This is what people see while scrolling Reddit.
+  Keep it FAST: no game code, no music, just the key art + font. The heavy game lives
+  in game.html and only loads after the player taps LAUNCH.
+  Analogy: the movie poster in the lobby, not the movie.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Retro Space Blaster</title>
+  </head>
+  <body>
+    <main class="card">
+      <div class="stars" aria-hidden="true"></div>
+
+      <h1 class="title">
+        <span class="title-1">RETRO SPACE</span>
+        <span class="title-2">BLASTER</span>
+      </h1>
+      <p class="tagline">A courier's war on the Spiral Arm Turnpike</p>
+
+      <button id="launch" class="launch" type="button">▶ LAUNCH</button>
+      <p id="greeting" class="greeting"></p>
+
+      <section class="board" aria-labelledby="board-title">
+        <h2 id="board-title">TOP PILOTS</h2>
+        <ol id="board-list" class="board-list">
+          <li class="board-empty">Loading…</li>
+        </ol>
+      </section>
+    </main>
+    <script type="module" src="./splash.ts"></script>
+  </body>
+</html>
