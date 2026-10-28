@@ -12,7 +12,7 @@ Record _where_ a secret lives, never the secret itself.
 | Devvit app name / slug | `retro-space-blaster` (from `devvit.json` → `name`)                                   |
 | Reddit developer acct  | The Reddit account you ran `devvit login` with                                        |
 | Devvit login token     | Stored by the CLI in your user folder (`%USERPROFILE%\.devvit`) — **never commit it** |
-| Test subreddit         | _fill in after first playtest_ — e.g. `r/retro_space_blaster_dev`                     |
+| Test subreddit         | _fill in after first playtest_ (the CLI prints the `<app-name>_dev` sub it creates)   |
 | App Directory page     | `https://developers.reddit.com/apps/retro-space-blaster`                              |
 
 ## Hosting & data
