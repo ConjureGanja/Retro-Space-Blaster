@@ -295,7 +295,9 @@ export const Game = {
     // AoE explosion from the HIGH EXPLOSIVE upgrade.
     triggerExplosion(x, y) {
         if (this.upgrades.explosive > 0) {
-            this.entities.explosions.push({ x, y, r: 1, maxR: this.upgrades.explosive, life: 15 });
+            // Radius = a 60px base + 15px per HIGH EXPLOSIVE pick (upgrades.js),
+            // so the first pick matches the old ~75px blast and stacking pays off.
+            this.entities.explosions.push({ x, y, r: 1, maxR: 60 + this.upgrades.explosive, life: 15 });
             Sound.play('explode');
         }
     },
@@ -992,7 +994,9 @@ export const Game = {
     updateExplosions() {
         for (let i = this.entities.explosions.length - 1; i >= 0; i--) {
             const ex = this.entities.explosions[i];
-            ex.r += 5; ex.life--;
+            // Grow to maxR over the blast's 15-frame life. (Previously a flat
+            // +5/frame, which ignored maxR — extra HIGH EXPLOSIVE picks did nothing.)
+            ex.r = Math.min(ex.maxR, ex.r + ex.maxR / 15); ex.life--;
             for (let j = this.entities.asteroids.length - 1; j >= 0; j--) {
                 const a = this.entities.asteroids[j];
                 if (Math.hypot(a.x - ex.x, a.y - ex.y) < ex.r + a.r) this.destroyAsteroid(j);

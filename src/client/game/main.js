@@ -39,13 +39,51 @@ async function attachDevTools() {
     console.info('[RSB] dev build — run RSB.dev.help() for debug commands');
 }
 
-function loop() {
+/**
+ * Fixed-timestep loop: the simulation always advances at 60 steps/second,
+ * no matter how fast the screen refreshes.
+ *
+ * WHY: every speed, timer and spawn rate in the game is tuned "per frame at
+ * 60fps". Stepping once per requestAnimationFrame made a 144 Hz monitor run
+ * the whole game 2.4x faster than a 60 Hz phone — unfair now that scores land
+ * on a shared leaderboard. Here an accumulator banks real elapsed time and
+ * spends it in exact 1/60s steps; rendering still happens every frame (it's
+ * read-only, so drawing the same state twice is harmless).
+ *
+ * Analogy: a metronome for the band. The lighting rig (renderer) can flash as
+ * often as it likes, but the drummer (simulation) only plays on the click.
+ */
+const STEP_MS = 1000 / 60;
+// If a frame stalls (tab switch, GC hitch), catch up at most this many steps,
+// then drop the backlog — otherwise one hiccup snowballs into a freeze
+// (the classic "spiral of death").
+const MAX_STEPS_PER_FRAME = 5;
+let lastTime = null;
+let accumulator = 0;
+
+function step() {
     Game.tick++;
     if (Runtime.state === STATE.PLAYING) {
         Game.update();
     } else {
         FX.updateAmbient(); // drifting starfield behind menus
     }
+}
+
+function loop(now) {
+    if (lastTime === null) lastTime = now;
+    // Clamp huge gaps (e.g. returning to a backgrounded tab) to 250 ms.
+    accumulator += Math.min(now - lastTime, 250);
+    lastTime = now;
+
+    let steps = 0;
+    while (accumulator >= STEP_MS && steps < MAX_STEPS_PER_FRAME) {
+        step();
+        accumulator -= STEP_MS;
+        steps++;
+    }
+    if (steps === MAX_STEPS_PER_FRAME) accumulator = 0;
+
     draw();
     requestAnimationFrame(loop);
 }
@@ -67,7 +105,7 @@ async function boot() {
     if (UI.refreshShipPreview) UI.refreshShipPreview();
 
     void attachDevTools();
-    loop();
+    requestAnimationFrame(loop);
 }
 
 boot();
