@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Retro Space Blaster</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body class="theme-neon">
+
+    <audio id="bgm" src="assets/music/bgm.mp3" loop preload="auto"></audio>
+    <audio id="menu-bgm" src="assets/music/StartMenuMusic.mp3" loop preload="auto"></audio>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div class="vignette"></div>
+        <div class="scanlines"></div>
+        <div id="xp-bar-container"><div id="xp-bar-fill"></div></div>
+
+        <!-- Boss health — full width across the top when a boss battle begins -->
+        <div id="boss-hud">
+            <div id="boss-name" class="hud-text">BOSS</div>
+            <div class="boss-bar-bg"><div id="boss-bar-fill"></div></div>
+        </div>
+
+        <div id="ui-layer">
+            <div>
+                <div id="score" class="hud-text">SCORE: 0</div>
+                <div id="lives" class="hud-text">LIVES: 3</div>
+                <div id="combo" class="hud-text" style="display:none;">CHAIN</div>
+            </div>
+            <div style="text-align: right;">
+                <div id="level-hud" class="hud-text">SECTOR: 1</div>
+            </div>
+        </div>
+
+        <!-- Ship special ability charge -->
+        <div id="ability-hud">
+            <div id="ability-name">SPECIAL</div>
+            <div class="ability-bar-bg"><div id="ability-bar-fill"></div></div>
+        </div>
+
+        <!-- Sector progress toward the mothership -->
+        <div id="progress-hud">
+            <div id="progress-track">
+                <div id="progress-fill"></div>
+                <div id="progress-boss-icon">☠</div>
+            </div>
+        </div>
+
+        <!-- "NOW ENTERING" toast at the start of each node -->
+        <div id="sector-toast"></div>
+
+        <!-- SPLASH — press any button -->
+        <div id="screen-splash" class="menu-screen active">
+            <div class="splash-title">
+                <span class="splash-line1">RETRO SPACE</span>
+                <span class="splash-line2">BLASTER</span>
+            </div>
+            <div class="splash-sub">A COURIER'S WAR ON THE SPIRAL ARM TURNPIKE</div>
+            <div id="splash-press">— PRESS ANY BUTTON —</div>
+            <div id="splash-copyright"></div>
+        </div>
+
+        <!-- MAIN MENU / HANGAR -->
+        <div id="menu-main" class="menu-screen">
+            <img class="menu-decor decor-saucer" src="assets/sprites/enemy-saucer.svg" alt="">
+            <img class="menu-decor decor-swarmer" src="assets/sprites/enemy-swarmer.svg" alt="">
+            <img class="menu-decor decor-sniper" src="assets/sprites/enemy-sniper.svg" alt="">
+            <h1>RETRO SPACE BLASTER</h1>
+            <div id="menu-hiscore">HI-SCORE: 0</div>
+
+            <div id="ship-selector">
+                <h3 class="hangar-label">SELECT YOUR SHIP</h3>
+                <div class="hangar-row">
+                    <button id="btn-ship-prev" class="menu-btn hangar-arrow">&lt;</button>
+                    <div class="hangar-card">
+                        <img id="ship-preview" src="assets/sprites/playership1.svg" alt="ship preview" />
+                        <div id="ship-name">FALCON</div>
+                        <div id="ship-role">Interceptor</div>
+                        <div class="hangar-stats">
+                            <div class="stat-line"><span>SPD</span><span id="stat-spd" class="stat-pips"></span></div>
+                            <div class="stat-line"><span>PWR</span><span id="stat-pow" class="stat-pips"></span></div>
+                            <div class="stat-line"><span>ROF</span><span id="stat-rof" class="stat-pips"></span></div>
+                        </div>
+                        <div id="ship-ability-name">CHRONO FIELD</div>
+                        <div id="ship-ability-desc">Hold to slow time.</div>
+                    </div>
+                    <button id="btn-ship-next" class="menu-btn hangar-arrow">&gt;</button>
+                </div>
+                <label class="hd-toggle">
+                    <input type="checkbox" id="chk-hd-sprites"> Use HD Sprites
+                </label>
+            </div>
+
+            <button id="btn-start" class="menu-btn">LAUNCH CAMPAIGN</button>
+            <button id="btn-difficulty" class="menu-btn" style="margin-top: 0;">DIFFICULTY: PILOT</button>
+            <button id="btn-settings" class="menu-btn" style="margin-top: 0;">SETTINGS</button>
+            <div class="controls-info">
+                MOUSE = Move Ship<br>
+                <span class="key-btn">LEFT CLICK</span> = Fire Weapons<br>
+                <span class="key-btn">RIGHT CLICK</span> = Special Ability<br>
+                <span class="key-btn">ESC</span> = Pause
+            </div>
+        </div>
+
+        <!-- SETTINGS SCREEN -->
+        <div id="menu-settings" class="menu-screen">
+            <h1>SETTINGS</h1>
+
+            <div class="settings-group">
+                <label>MUSIC VOLUME</label>
+                <input type="range" id="vol-music" min="0" max="1" step="0.1" value="0.5">
+            </div>
+
+            <div class="settings-group">
+                <label>SFX VOLUME</label>
+                <input type="range" id="vol-sfx" min="0" max="1" step="0.1" value="0.8">
+            </div>
+
+            <div class="settings-group">
+                <label>THEME</label>
+                <div class="theme-picker">
+                    <button class="theme-btn" data-theme="theme-neon" style="color: #44ff44; border-color: #44ff44;">NEON</button>
+                    <button class="theme-btn" data-theme="theme-magenta" style="color: #ff00ff; border-color: #ff00ff;">CYBER</button>
+                    <button class="theme-btn" data-theme="theme-classic" style="color: #ffffff; border-color: #ffffff;">CLASSIC</button>
+                </div>
+            </div>
+
+            <button id="btn-settings-back" class="menu-btn">BACK</button>
+        </div>
+
+        <!-- DIFFICULTY SELECT -->
+        <div id="menu-difficulty" class="menu-screen">
+            <h1>CHOOSE YOUR CONTRACT</h1>
+            <div id="difficulty-container"><!-- Cards injected via JS --></div>
+            <button id="btn-difficulty-back" class="menu-btn">BACK</button>
+        </div>
+
+        <!-- INTRO LORE CRAWL (first campaign launch) -->
+        <div id="menu-intro" class="menu-screen">
+            <div id="intro-terminal">
+                <div id="intro-header">GUILD DISPATCH ▸ PRIORITY TRANSMISSION</div>
+                <div id="intro-text"></div>
+            </div>
+            <button id="btn-intro-skip" class="menu-btn">SKIP &gt;&gt;</button>
+        </div>
+
+        <!-- STAR MAP -->
+        <div id="menu-map" class="menu-screen">
+            <div id="map-header">
+                <h2 id="map-title">SPIRAL ARM TURNPIKE</h2>
+                <div id="map-run-stats"></div>
+            </div>
+            <div id="map-area">
+                <svg id="map-edges" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+                <div id="map-nodes"></div>
+            </div>
+            <div id="map-briefing"></div>
+            <button id="btn-map-back" class="menu-btn map-back">HANGAR</button>
+        </div>
+
+        <!-- VICTORY (campaign complete) -->
+        <div id="menu-victory" class="menu-screen">
+            <h1 style="color:#ffcc00; text-shadow: 0 0 16px #ffcc00;">TURNPIKE SAVED</h1>
+            <div id="victory-text"></div>
+            <div id="victory-score"></div>
+            <button id="btn-victory-map" class="menu-btn">BACK TO THE MAP</button>
+            <button id="btn-victory-menu" class="menu-btn" style="margin-top: 0;">MAIN MENU</button>
+        </div>
+
+        <!-- LEVEL UP (ROGUELITE) SCREEN -->
+        <div id="menu-levelup" class="menu-screen">
+            <h2 id="levelup-title" style="color:#ffcc00; text-shadow: 0 0 10px #ffcc00;">SYSTEM UPGRADE AVAILABLE</h2>
+            <div id="upgrade-container"><!-- Cards injected via JS --></div>
+        </div>
+
+        <!-- LEVEL COMPLETE / SCORE TALLY SCREEN -->
+        <div id="menu-levelcomplete" class="menu-screen">
+            <h1 id="lc-title" style="color:#ffcc00; text-shadow: 0 0 12px #ffcc00;">SECTOR 1 CLEAR</h1>
+            <div id="lc-quip" class="quip-line"></div>
+            <div id="lc-lines"><!-- Tally rows injected via JS --></div>
+            <div id="lc-grade" class="grade-stamp"></div>
+            <button id="btn-continue" class="menu-btn">CONTINUE</button>
+        </div>
+
+        <!-- PAUSE SCREEN -->
+        <div id="menu-pause" class="menu-screen">
+            <h1>PAUSED</h1>
+            <div id="pause-node"></div>
+            <button id="btn-resume" class="menu-btn">RESUME</button>
+            <button id="btn-quit" class="menu-btn">RETURN TO STAR MAP</button>
+        </div>
+
+        <!-- GAME OVER SCREEN -->
+        <div id="menu-gameover" class="menu-screen">
+            <h1 style="color: #ff4444;">HULL BREACHED</h1>
+            <div class="grade-stamp show grade-f" style="position: static; transform: none; margin-bottom: 20px;">F</div>
+            <div id="final-score" style="margin-bottom: 12px; font-size: 20px;">SCORE: 0</div>
+            <div id="final-level" style="margin-bottom: 16px; font-size: 14px; color:#aaa;">REACHED SECTOR: 1</div>
+            <div id="gameover-quip" class="quip-line"></div>
+            <button id="btn-gameover-map" class="menu-btn">RETURN TO STAR MAP</button>
+            <button id="btn-mainmenu" class="menu-btn" style="margin-top: 0;">MAIN MENU</button>
+        </div>
+    </div>
+
+    <script type="module" src="src/main.js"></script>
+</body>
+</html>

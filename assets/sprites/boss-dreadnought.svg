@@ -1,0 +1,13 @@
+<!-- BOSS SHIP 1 - Dreadnought (large, intimidating) -->
+<svg width="180" height="140" viewBox="0 0 180 140" xmlns="http://www.w3.org/2000/svg" id="boss-dreadnought">
+  <!-- Main hull -->
+  <polygon points="30,80 60,40 120,40 150,80 140,110 40,110" fill="#aa1122" stroke="#ff4455" stroke-width="12"/>
+  <!-- Cockpit / Core -->
+  <ellipse cx="90" cy="65" rx="22" ry="18" fill="#220033" stroke="#ff88ff" stroke-width="6"/>
+  <!-- Side cannons -->
+  <rect x="45" y="75" width="25" height="12" rx="3" fill="#555555" stroke="#ffffff"/>
+  <rect x="110" y="75" width="25" height="12" rx="3" fill="#555555" stroke="#ffffff"/>
+  <!-- Thrusters -->
+  <polygon points="55,110 50,125 65,125" fill="#ff4400"/>
+  <polygon points="125,110 115,125 130,125" fill="#ff4400"/>
+</svg>

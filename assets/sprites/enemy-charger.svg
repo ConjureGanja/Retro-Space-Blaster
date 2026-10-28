@@ -1,0 +1,7 @@
+<!-- ENEMY - Charger (fast diving dart), drawn nose-up -->
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" id="enemy-charger">
+  <polygon points="32,4 44,34 40,56 32,48 24,56 20,34" fill="#33001f" stroke="#ff00aa" stroke-width="4"/>
+  <polygon points="32,14 37,32 32,40 27,32" fill="#110011" stroke="#ff66cc" stroke-width="2"/>
+  <circle cx="32" cy="24" r="3" fill="#ffaaff"/>
+  <polygon points="26,52 32,60 38,52 32,55" fill="#ff44bb"/>
+</svg>

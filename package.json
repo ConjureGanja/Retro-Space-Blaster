@@ -1,0 +1,11 @@
+{
+  "name": "retro-space-blaster",
+  "version": "0.1.0",
+  "description": "Retro Space Blaster: Roguelite Edition — a vector-style arcade shooter with stacking roguelite upgrades.",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "license": "MIT"
+}

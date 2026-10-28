@@ -1,0 +1,5 @@
+<!-- POWER-UP: HEALTH / EXTRA LIFE -->
+<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" id="powerup-health">
+  <circle cx="25" cy="25" r="22" fill="#112244" stroke="#ff2266" stroke-width="5"/>
+  <path d="M25,13 L30,22 L40,22 L32,29 L35,40 L25,34 L15,40 L18,29 L10,22 L20,22 Z" fill="#ff4488"/>
+</svg>
