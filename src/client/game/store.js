@@ -52,7 +52,21 @@ function scopeToAccount(username, subreddit) {
  */
 const DIRTY_KEY = '__unsynced';
 
-function markDirty() { writeLocal(DIRTY_KEY, true); }
+/**
+ * Tracked PER KEY, not as one flag: if only the volume changed offline, only
+ * the volume should beat the cloud — a campaign advanced on another device
+ * in the meantime must survive.
+ */
+function dirtyKeys() {
+    const v = readLocal(DIRTY_KEY);
+    return Array.isArray(v) ? v.filter(k => SYNCED_KEYS.includes(k)) : [];
+}
+function markDirty(key) {
+    const keys = dirtyKeys();
+    if (!keys.includes(key)) writeLocal(DIRTY_KEY, [...keys, key]);
+}
+// cloud.js only calls this once the NEWEST snapshot (which contains every
+// dirty key) is confirmed, so clearing them all is safe.
 function markClean() { removeLocal(DIRTY_KEY); }
 
 /** Queue the current save for upload; clear the sticky note once it lands. */
@@ -122,13 +136,13 @@ export const store = {
             const v = readLocal(key);
             if (v !== undefined) cache[key] = v;
         }
-        const unsynced = readLocal(DIRTY_KEY) === true;
+        const unsynced = dirtyKeys();
 
         if (remote) {
             for (const key of SYNCED_KEYS) {
                 if (!(key in remote)) continue;
                 // Unsynced local progress beats the (older) cloud copy.
-                if (unsynced && key in cache && key !== 'hiscore') continue;
+                if (unsynced.includes(key) && key in cache && key !== 'hiscore') continue;
                 // Hi-score: never let an older device lower it.
                 cache[key] = key === 'hiscore'
                     ? Math.max(Number(cache.hiscore) || 0, Number(remote.hiscore) || 0)
@@ -140,7 +154,7 @@ export const store = {
         if (Cloud.best > (Number(cache.hiscore) || 0)) cache.hiscore = Cloud.best;
 
         // Push the local-wins merge back up so the cloud catches up.
-        if (unsynced) sync();
+        if (unsynced.length) sync();
     },
 
     get(key, fallback) {
@@ -153,12 +167,12 @@ export const store = {
         if (key in cache && JSON.stringify(cache[key]) === JSON.stringify(value)) return;
         cache[key] = copy(value);
         writeLocal(key, value);
-        if (SYNCED_KEYS.includes(key)) { markDirty(); sync(); }
+        if (SYNCED_KEYS.includes(key)) { markDirty(key); sync(); }
     },
 
     remove(key) {
         delete cache[key];
         removeLocal(key);
-        if (SYNCED_KEYS.includes(key)) { markDirty(); sync(); }
+        if (SYNCED_KEYS.includes(key)) { markDirty(key); sync(); }
     }
 };
