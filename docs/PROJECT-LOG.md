@@ -65,6 +65,10 @@ Record _where_ a secret lives, never the secret itself.
 - [ ] Hangar/main menu overflows on short screens (≤720 px tall) — matters for
       phones in expanded mode. Pre-existing layout, not caused by the restructure.
 - [ ] Touch: two-finger special works, but there's no on-screen button yet.
+- [ ] Upgrades that are cosmetic-only today (found by Codex review on PR #1):
+      TRACER ROUNDS ("damaging trail" — trail particles never hit anything) and
+      PRISMATIC CORE ("bonus damage" — only recolours lasers). Needs a balance
+      call on how much each should add.
 - [ ] In-game TOP PILOTS screen (leaderboard currently shows on the feed card).
 - [ ] Music is ~7.5 MB of the bundle — re-encode to ~96 kbps to halve it.
 - [ ] `Whispers of Tomorrow.mp3` sits in `art/music-unused/` — wire it in or drop it.
