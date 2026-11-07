@@ -292,47 +292,34 @@ function drawShip() {
         drawSprite(ctx, 'shieldEffect', p.x, p.y, ship.r * 4.5 * p.scale, Game.tick * 0.025, alpha);
     }
 
-    // Art faces up. Up on this glass is forward, toward the horizon, so the
-    // nose follows the corridor without the old +PI/2 that aimed it at the
-    // right edge of a side-on view. Bank is still the sim's lateral speed.
-    const bank = Math.max(-CONSTANTS.BANK_MAX, Math.min(CONSTANTS.BANK_MAX, ship.yv * CONSTANTS.BANK_TILT));
-
-    ctx.save();
-    ctx.translate(p.x, p.y);
-    ctx.scale(p.scale, p.scale);
-    ctx.rotate(bank);
-
-    if (ship.thrust > 0.04) {
-        const f = ship.thrust;
-        const flick = 0.6 + Math.random() * 0.4;
-        const len = 16 + f * 30 * flick;
-        const w = 7 + f * 5;
-        const grad = ctx.createLinearGradient(0, 12, 0, 12 + len);
-        grad.addColorStop(0, 'rgba(255,220,255,0.95)');
-        grad.addColorStop(0.35, 'rgba(180,80,255,0.8)');
-        grad.addColorStop(0.7, 'rgba(90,20,180,0.35)');
-        grad.addColorStop(1, 'rgba(40,0,80,0)');
-        ctx.shadowBlur = 12; ctx.shadowColor = '#cc66ff';
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.moveTo(-w * 0.6, 12); ctx.lineTo(0, 12 + len); ctx.lineTo(w * 0.6, 12);
-        ctx.closePath(); ctx.fill();
-        ctx.shadowBlur = 0;
-    }
-    ctx.restore();
-
-    drawSprite(ctx, Runtime.shipSpriteName || 'playership1', p.x, p.y, ship.r * 3.8 * p.scale, bank);
+    // The hull art already banks and pitches. Rotating it again would lean a
+    // picture that was drawn leaning. Nose stays toward the horizon.
+    drawSprite(ctx, playerShipKey(ship), p.x, p.y, ship.r * 4.6 * p.scale, 0);
 
     if (ship.muzzleFlash > 0) {
+        const reach = ship.r * 3.1 * p.scale;
         ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.scale(p.scale, p.scale);
-        ctx.rotate(bank);
+        ctx.translate(p.x, p.y - reach);
         ctx.globalAlpha = ship.muzzleFlash / 4;
         ctx.fillStyle = '#ffffff'; ctx.shadowBlur = 20; ctx.shadowColor = '#88ffaa';
-        ctx.beginPath(); ctx.arc(0, -24, 5 + Math.random() * 3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, 0, (5 + Math.random() * 3) * p.scale, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
     }
+}
+
+/**
+ * Which rear-view plate to show. Lateral speed wins over forward speed so a
+ * strafe reads as a bank even while the ship is also climbing the road.
+ * World +y is screen-right; world +x is toward the horizon (up the glass).
+ */
+function playerShipKey(ship) {
+    const base = String(Runtime.shipSpriteName || 'playership1').replace(/HD$/, '');
+    const ax = Math.abs(ship.xv);
+    const ay = Math.abs(ship.yv);
+    let pose = 'back';
+    if (ay >= 1.15 && ay >= ax) pose = ship.yv > 0 ? 'right' : 'left';
+    else if (ax >= 1.15) pose = ship.xv > 0 ? 'up' : 'down';
+    return `${base}-${pose}`;
 }
 
 function drawAsteroids() {

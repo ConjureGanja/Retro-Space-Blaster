@@ -17,20 +17,12 @@
  * large 1440x810 frame. drawSprite() preserves aspect ratio, scaling the
  * sprite so its longest side equals `size`.
  *
- * HD variants: a key ending in "HD" is the high-detail version of the same
- * base key. drawSprite() resolves base keys through Sprites.resolveKey(), so
- * flipping Runtime.useHD (the hangar's HD SPRITES toggle) switches the whole
- * game's art live — enemies, bosses, powerups, effects — with zero per-callsite
- * changes.
- *
- * LAZY HD: only the standard set loads at boot. The HD set is fetched the
- * first time a player turns HD on (Sprites.loadHD()). Until each HD image
- * finishes, resolveKey() quietly keeps drawing the standard version.
- * Analogy: a restaurant preps the regular menu before doors open, and only
- * fires up the tasting-menu station when someone actually orders it.
+ * This version has one graphics set: the HD masters. resolveKey() always
+ * prefers a key's HD file when one exists, and loadAll() fetches those up
+ * front. There is no hangar toggle and no second download.
+ * Analogy: the kitchen only prints the tasting menu. The lunch menu is
+ * still in the binder, but it never goes on the pass.
  */
-
-import { Runtime } from './config.js';
 
 const SPRITE_FILES = {
     powerupWeapon:   '/assets/sprites/powerup-weapon.webp',
@@ -74,6 +66,34 @@ const SPRITE_FILES = {
     playership4HD:   '/assets/sprites/playership4HD.webp',
     playership5:     '/assets/sprites/playership5.webp',
     playership5HD:   '/assets/sprites/playership5HD.webp',
+
+    // Rear views for the chase camera. One pose per stick direction.
+    // Built by scripts/build-rear-ships.mjs from the HD masters.
+    'playership1-back':  '/assets/sprites/playership1-back.webp',
+    'playership1-left':  '/assets/sprites/playership1-left.webp',
+    'playership1-right': '/assets/sprites/playership1-right.webp',
+    'playership1-up':    '/assets/sprites/playership1-up.webp',
+    'playership1-down':  '/assets/sprites/playership1-down.webp',
+    'playership2-back':  '/assets/sprites/playership2-back.webp',
+    'playership2-left':  '/assets/sprites/playership2-left.webp',
+    'playership2-right': '/assets/sprites/playership2-right.webp',
+    'playership2-up':    '/assets/sprites/playership2-up.webp',
+    'playership2-down':  '/assets/sprites/playership2-down.webp',
+    'playership3-back':  '/assets/sprites/playership3-back.webp',
+    'playership3-left':  '/assets/sprites/playership3-left.webp',
+    'playership3-right': '/assets/sprites/playership3-right.webp',
+    'playership3-up':    '/assets/sprites/playership3-up.webp',
+    'playership3-down':  '/assets/sprites/playership3-down.webp',
+    'playership4-back':  '/assets/sprites/playership4-back.webp',
+    'playership4-left':  '/assets/sprites/playership4-left.webp',
+    'playership4-right': '/assets/sprites/playership4-right.webp',
+    'playership4-up':    '/assets/sprites/playership4-up.webp',
+    'playership4-down':  '/assets/sprites/playership4-down.webp',
+    'playership5-back':  '/assets/sprites/playership5-back.webp',
+    'playership5-left':  '/assets/sprites/playership5-left.webp',
+    'playership5-right': '/assets/sprites/playership5-right.webp',
+    'playership5-up':    '/assets/sprites/playership5-up.webp',
+    'playership5-down':  '/assets/sprites/playership5-down.webp',
 
     // Roguelite upgrade card icons (keys match upgrade `icon` in upgrades.js)
     upgDouble:       '/assets/sprites/statboost-twin cannons.webp',
@@ -181,11 +201,10 @@ export const Sprites = {
     },
 
     /**
-     * Preload the standard (non-HD) sprite set. Resolves once all have loaded
-     * (or errored — a missing sprite should never block the game from booting).
+     * Preload every sprite, HD included. A missing file must not block boot.
      */
     loadAll() {
-        const entries = Object.entries(SPRITE_FILES).filter(([key]) => !this._isHDKey(key));
+        const entries = Object.entries(SPRITE_FILES);
         return Promise.all(entries.map(([key, src]) => this._loadOne(key, src)))
             .then(() => { this.ready = true; });
     },
@@ -209,21 +228,13 @@ export const Sprites = {
     },
 
     /**
-     * Map a base key to its HD variant when the HD toggle is on and the HD
-     * art actually loaded. Keys that already end in HD (player ships pass
-     * explicit names) fall through untouched.
+     * Always draw the HD file when this key has one. Rear-view ship poses
+     * have no twin, so they pass through unchanged.
      */
     resolveKey(key) {
-        // Explicit HD key (e.g. the player's 'playership1HD') whose lazy
-        // download hasn't finished yet → draw the standard art meanwhile, so
-        // the ship never blinks out of existence while HD streams in.
-        if (key.endsWith('HD') && !this.isReady(key)) {
-            const base = key.slice(0, -2);
-            return this.isReady(base) ? base : key;
-        }
-        if (Runtime.useHD && !key.endsWith('HD')) {
+        if (!key.endsWith('HD')) {
             const hd = key + 'HD';
-            if (this.isReady(hd)) return hd;
+            if (Object.prototype.hasOwnProperty.call(SPRITE_FILES, hd) && this.isReady(hd)) return hd;
         }
         return key;
     },

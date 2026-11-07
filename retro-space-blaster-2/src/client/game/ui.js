@@ -41,19 +41,16 @@ export const UI = {
 
         // ---------------- Hangar / ship selection ----------------
         let selectedShipIdx = store.get('ship', 1);
-        let useHD = store.get('hd', false);
-        $('chk-hd-sprites').checked = useHD;
 
         const updatePreview = () => {
             const ship = getShip(selectedShipIdx);
-            const suffix = useHD ? 'HD' : '';
-            // Prefer the auto-trimmed sprite (the raw SVG is a huge frame with
-            // the ship art small in the center); fall back to the file itself.
-            const key = `${ship.sprite}${suffix}`;
+            // Hangar shows the rear plate. This version does not offer a
+            // standard-definition swap — HD is the only set that loads.
+            const key = `${ship.sprite}-back`;
             const img = Sprites.get(key);
             $('ship-preview').src = (img instanceof HTMLCanvasElement)
                 ? img.toDataURL()
-                : `/assets/sprites/${key}.webp`;
+                : `/assets/sprites/${ship.sprite}-back.webp`;
             $('ship-name').innerText = ship.name;
             $('ship-name').style.color = ship.stats.color;
             $('ship-role').innerText = ship.role;
@@ -68,10 +65,9 @@ export const UI = {
             $('stat-rof').innerText = pips(Math.round((30 - ship.stats.fireDelay) / 3.5));
 
             Runtime.shipDef = ship;
-            Runtime.shipSpriteName = `${ship.sprite}${suffix}`;
-            Runtime.useHD = useHD;
+            Runtime.shipSpriteName = ship.sprite;
+            Runtime.useHD = true;
             store.set('ship', selectedShipIdx);
-            store.set('hd', useHD);
         };
 
         $('btn-ship-prev').addEventListener('click', () => {
@@ -81,13 +77,6 @@ export const UI = {
         $('btn-ship-next').addEventListener('click', () => {
             selectedShipIdx = selectedShipIdx < SHIPS.length ? selectedShipIdx + 1 : 1;
             updatePreview();
-        });
-        $('chk-hd-sprites').addEventListener('change', (e) => {
-            useHD = e.target.checked;
-            updatePreview();
-            // HD art is downloaded on first use (see Sprites.loadHD). Refresh
-            // the hangar preview once it lands so the HD ship pops in.
-            if (useHD) Sprites.loadHD().then(updatePreview);
         });
         updatePreview();
         // Re-render once sprites finish loading so the trimmed art appears.

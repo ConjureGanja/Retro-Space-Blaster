@@ -63,6 +63,8 @@ Leave these files as copies of the original if you want the same pace:
 
 A video reference can change colors and the camera. It should not change shot count, wave timers, or upgrade effects. The base gun is still one bolt. Spread, twin cannons, and flak add the extra shots.
 
+Player ships are rear views only (`scripts/build-rear-ships.mjs` writes five poses per ship into `art/sprites/`). The hangar has no SD/HD switch. Enemies and bosses always use their HD file.
+
 ## Camera, short version
 
 - Sim x is forward (old "right"). Sim y is lateral (old "down"). The floor is still 1280×720.

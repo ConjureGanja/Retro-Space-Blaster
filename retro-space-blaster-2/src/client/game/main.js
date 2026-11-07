@@ -130,10 +130,9 @@ async function boot() {
     Game.init(canvas);
     UI.bindEvents();
 
-    // 2. Preload the standard sprite set before the first frame so art pops
-    //    in cleanly. HD art streams in only if the player has HD enabled.
+    // 2. Preload the one graphics set (HD, plus the rear-view ship poses)
+    //    before the first frame so art pops in cleanly.
     await Sprites.loadAll();
-    if (Runtime.useHD) void Sprites.loadHD().then(() => UI.refreshShipPreview?.());
     if (UI.refreshShipPreview) UI.refreshShipPreview();
 
     void attachDevTools();

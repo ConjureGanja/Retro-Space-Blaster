@@ -75,6 +75,8 @@ export const Runtime = {
     bossActive: false,
     shipDef: null,        // Selected ship definition (see ships.js)
     shipSpriteName: 'playership1',
-    useHD: false,
+    // Sequel ships one graphics set. The flag stays so older save code that
+    // still reads it does not grow a second art path.
+    useHD: true,
     difficulty: DIFFICULTIES.pilot // live preset (see DIFFICULTIES)
 };
