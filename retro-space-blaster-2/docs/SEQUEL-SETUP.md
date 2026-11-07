@@ -65,7 +65,8 @@ A video reference can change colors and the camera. It should not change shot co
 
 ## Camera, short version
 
-- Sim x is forward (old "right"). Sim y is lateral (old "down").
-- The lens looks along +x. The far edge of the floor sits on the horizon, about a quarter of the way down the logical view. The near edge sits at the bottom.
-- The window letterboxes that view. It does not resize the floor.
-- Mouse, and the existing one-finger touch control, are unprojected into sim coordinates. Left click still fires. Right click is still the ship special. Esc or P still pauses.
+- Sim x is forward (old "right"). Sim y is lateral (old "down"). The floor is still 1280×720.
+- The camera is bolted just behind the ship. The fighter sits low in the frame, large, and the road ahead shrinks toward a horizon near the top. Far sprites are about a third the size of the ship.
+- Only about ±110 world pixels of width stay in frame at the ship, and about 430 world pixels of road stay visible ahead. That crop is the zoom. It does not change how fast anything moves.
+- The picture scales until it covers the window, then the extra edges are cropped. A tall phone does not shrink the ship into a strip. The floor itself stays 1280×720.
+- Mouse, and the existing one-finger touch control, are unprojected into sim coordinates every frame, so holding the cursor forward keeps the ship flying forward. Left click still fires. Right click is still the ship special. Esc or P still pauses.

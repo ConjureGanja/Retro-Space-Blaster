@@ -10,7 +10,7 @@ import '@fontsource/press-start-2p/400.css';
 import '../styles/main.css';
 
 import { STATE, Runtime } from './config.js';
-import { initInput } from './input.js';
+import { initInput, syncPointer } from './input.js';
 import { Sprites } from './sprites.js';
 import { Game } from './game.js';
 import { UI } from './ui.js';
@@ -19,7 +19,7 @@ import { FX } from './fx.js';
 import { CONSTANTS } from './config.js';
 import { input } from './input.js';
 import { store } from './store.js';
-import { WORLD_W, WORLD_H, fitView } from './view/plane.ts';
+import { WORLD_W, WORLD_H, fitView, setCamera } from './view/plane.ts';
 import { setFrame } from './view/frame.ts';
 
 const canvas = document.getElementById('gameCanvas');
@@ -65,6 +65,11 @@ let accumulator = 0;
 
 function step() {
     Game.tick++;
+    // Aim with this frame's camera before the ship moves, so a held cursor
+    // keeps pointing at the same spot on the glass.
+    const ship = Game.entities.ship;
+    if (ship) setCamera(ship.x, ship.y);
+    syncPointer(canvas);
     if (Runtime.state === STATE.PLAYING) {
         Game.update();
     } else {

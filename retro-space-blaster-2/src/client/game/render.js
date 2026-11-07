@@ -13,7 +13,7 @@ import { Game } from './game.js';
 import { input } from './input.js';
 import { FX } from './fx.js';
 import { drawSprite, Sprites } from './sprites.js';
-import { project, VIEW_W, VIEW_H } from './view/plane.ts';
+import { project, setCamera, getCamera, VIEW_W, VIEW_H, LOOK_AHEAD, LOOK_BEHIND, HALF_WIDTH } from './view/plane.ts';
 import { getFrame } from './view/frame.ts';
 
 let ctx;
@@ -51,6 +51,8 @@ function heading(x, y, xv, yv) {
 }
 
 export function draw() {
+    const shipNow = Game.entities.ship;
+    if (shipNow) setCamera(shipNow.x, shipNow.y);
     const frame = getFrame();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#070512';
@@ -103,34 +105,39 @@ export function draw() {
 
 function drawSky() {
     const g = ctx.createLinearGradient(0, 0, 0, VIEW_H);
-    g.addColorStop(0, '#14081f');
-    g.addColorStop(0.18, '#24124a');
-    g.addColorStop(0.25, '#1a4466');
-    g.addColorStop(1, '#071018');
+    g.addColorStop(0, '#12081c');
+    g.addColorStop(0.12, '#3a1570');
+    g.addColorStop(0.2, '#12324a');
+    g.addColorStop(1, '#061018');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 }
 
-/** Cyan floor grid. The trapezoid is the tilt; the sim never sees it. */
+/**
+ * Cyan floor grid in the patch the camera can see. Spacing is in world
+ * pixels, so up close the squares are big and they pinch together at the
+ * horizon. That pinch is the tilt; the sim never reads it.
+ */
 function drawGround() {
-    const W = CONSTANTS.GAME_WIDTH, H = CONSTANTS.GAME_HEIGHT;
+    const cam = getCamera();
+    const step = 32;
+    const x0 = Math.floor((cam.x - LOOK_BEHIND - step) / step) * step;
+    const x1 = cam.x + LOOK_AHEAD + step * 2;
+    const y0 = cam.y - HALF_WIDTH * 2.4;
+    const y1 = cam.y + HALF_WIDTH * 2.4;
     ctx.save();
-    ctx.strokeStyle = 'rgba(60, 230, 255, 0.22)';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(70, 235, 255, 0.38)';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    const cols = 12;
-    const rows = 16;
-    for (let i = 0; i <= cols; i++) {
-        const y = (H * i) / cols;
-        const a = project(0, y);
-        const b = project(W, y);
+    for (let y = y0; y <= y1; y += step) {
+        const a = project(x0, y);
+        const b = project(x1, y);
         ctx.moveTo(a.x, a.y);
         ctx.lineTo(b.x, b.y);
     }
-    for (let i = 0; i <= rows; i++) {
-        const x = (W * i) / rows;
-        const a = project(x, 0);
-        const b = project(x, H);
+    for (let x = x0; x <= x1; x += step) {
+        const a = project(x, y0);
+        const b = project(x, y1);
         ctx.moveTo(a.x, a.y);
         ctx.lineTo(b.x, b.y);
     }

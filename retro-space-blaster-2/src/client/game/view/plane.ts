@@ -1,49 +1,67 @@
 /**
- * Logical playfield and the mild behind-the-ship lens.
+ * Chase camera for the behind-the-ship view.
  *
  * The simulation still thinks in a flat 1280×720 rectangle: x grows forward
- * (the old "right"), y is lateral (the old "down"). Nothing in here changes
- * a speed, a timer, or a hit circle. It only decides where those floor marks
- * show up on the glass, and how a finger on the glass maps back to a mark.
+ * (the old "right"), y is lateral (the old "down"). Nothing here changes a
+ * speed, a timer, or a hit circle. The camera rides just behind the ship and
+ * films a small patch of that floor, tipped up toward a nearby horizon.
  *
- * Why the lens is separate from game.js: tilt changes pixels, and the sim
- * measures speed in pixels. Folding the camera into the sim would make a
- * 13px step a different distance on a phone than on a widescreen and quietly
- * retune the game. Analogy: the stage marks stay taped to the floor; this is
- * a new seat in the house, a little above the back row, looking toward the
- * far wing.
+ * Why it rides the ship: filming the whole floor made the fighter a speck.
+ * The video look is a helmet camera — the ship fills the lower frame and the
+ * road ahead shrinks fast. Analogy: the stage marks stay taped down; we
+ * stopped shooting the whole stage from the balcony and walked down behind
+ * the lead actor.
  *
- * Far ships are 72% the size of near ships. The floor's vertical run
- * (DEPTH_SPAN) is FAR_SCALE times the forward length of the field, which is
- * what makes a round hit circle still look round at the near edge. A steeper
- * pitch would squash that circle and make dodging lie about the sim.
+ * `scale` on a projected point is view-pixels per world-pixel. Sprites
+ * multiply by it, so the zoom lives entirely in the lens.
  */
 
 export const WORLD_W = 1280;
 export const WORLD_H = 720;
 
-/** Width of a far sprite divided by the same sprite at the near edge. */
-export const FAR_SCALE = 0.72;
+/** Logical glass. 16:9 so a widescreen window is the picture, not a side bar. */
+export const VIEW_W = 1280;
+export const VIEW_H = 720;
+
+/** Horizon, in view pixels. The road in front of the ship runs up to here. */
+export const HORIZON_Y = 92;
 
 /**
- * scale(t) = 1 / (1 + DEPTH_K * t), t in 0..1 along forward x.
- * Picked so scale(1) is exactly FAR_SCALE.
+ * Size of a sprite at the far end of the visible road, divided by its size
+ * at the camera's near plane (not at the ship). Small on purpose: the floor
+ * should fall away, not lie flat.
  */
-export const DEPTH_K = 1 / FAR_SCALE - 1;
+export const FAR_SCALE = 0.2;
+
+/** World pixels of road kept in frame ahead of and behind the ship. */
+export const LOOK_AHEAD = 430;
+export const LOOK_BEHIND = 78;
 
 /**
- * Screen pixels of forward travel, near edge to far edge.
- * Equals FAR_SCALE * WORLD_W so the near-edge floor isn't stretched taller
- * or wider than the lateral axis (one screen pixel per world pixel).
+ * Half the corridor width, in world pixels, at the ship. The full width
+ * (±HALF_WIDTH) fills the glass, which is what makes the fighter large.
  */
-export const DEPTH_SPAN = FAR_SCALE * WORLD_W;
+export const HALF_WIDTH = 110;
 
-/** Sky band above the far edge. One quarter of the logical view is sky. */
-export const SKY = DEPTH_SPAN / 3;
+/** Where the ship sits down the glass. 0 is the top, 1 is the bottom. */
+export const SHIP_SCREEN_FRAC = 0.8;
 
-export const VIEW_W = WORLD_W;
-export const VIEW_H = SKY + DEPTH_SPAN;
-export const HORIZON_Y = SKY;
+const DEPTH = LOOK_AHEAD + LOOK_BEHIND;
+const DEPTH_K = 1 / FAR_SCALE - 1;
+
+/**
+ * Helmet-camera anchor, in sim pixels. Spawn matches createShip (x=120,
+ * vertical center) so the opening shot is already behind the fighter.
+ */
+let camera = { x: 120, y: WORLD_H / 2 };
+
+export function setCamera(x: number, y: number): void {
+  camera = { x, y };
+}
+
+export function getCamera(): { x: number; y: number } {
+  return camera;
+}
 
 export type Projected = { x: number; y: number; scale: number };
 
@@ -56,56 +74,87 @@ export type Frame = {
   cssH: number;
 };
 
+/** Perspective factor along forward offset from the camera. 1 at the near lip. */
+export function perspective(dx: number): number {
+  const t = (dx + LOOK_BEHIND) / DEPTH;
+  return 1 / Math.max(1 + DEPTH_K * t, 0.05);
+}
+
+const SCALE_SHIP = perspective(0);
+const NEARNESS_SHIP = (SCALE_SHIP - FAR_SCALE) / (1 - FAR_SCALE);
+const BIASED_SHIP = (VIEW_H * SHIP_SCREEN_FRAC - HORIZON_Y) / (VIEW_H - HORIZON_Y);
+
 /**
- * 1 at the near edge (world x = 0), FAR_SCALE at the far edge (world x = WORLD_W).
- * Values outside the floor keep going: x < 0 grows past the bottom of the
- * glass, x > WORLD_W shrinks past the horizon. Clamping those onto the edges
- * would pin off-screen ships to the border until the sim deleted them.
- * The denominator floor only stops a point behind the camera from flipping
- * the picture upside down.
+ * Bends the road so the ship lands on SHIP_SCREEN_FRAC instead of halfway up.
+ * Solved from biased = nearness ^ PITCH at the ship's own depth.
  */
-export function depthScale(worldX: number): number {
-  const denom = 1 + DEPTH_K * (worldX / WORLD_W);
-  return 1 / Math.max(denom, 0.05);
+export const PITCH = Math.log(BIASED_SHIP) / Math.log(NEARNESS_SHIP);
+
+function screenY(perspScale: number): number {
+  const nearness = (perspScale - FAR_SCALE) / (1 - FAR_SCALE);
+  const biased = nearness >= 0 ? nearness ** PITCH : nearness;
+  return HORIZON_Y + biased * (VIEW_H - HORIZON_Y);
+}
+
+function perspFromY(viewY: number): number {
+  const biased = (viewY - HORIZON_Y) / (VIEW_H - HORIZON_Y);
+  const nearness = biased >= 0 ? biased ** (1 / PITCH) : biased;
+  return FAR_SCALE + nearness * (1 - FAR_SCALE);
+}
+
+function dxFromPersp(perspScale: number): number {
+  const t = (1 / perspScale - 1) / DEPTH_K;
+  return t * DEPTH - LOOK_BEHIND;
+}
+
+/** View pixels per world pixel at this forward offset. */
+function zoomAt(perspScale: number): number {
+  return (VIEW_W / (2 * HALF_WIDTH)) * (perspScale / SCALE_SHIP);
 }
 
 /**
- * World point → logical view pixels. Forward runs toward the horizon (up).
- * Lateral runs left to right. `scale` is the billboard size at that depth.
+ * World point → view pixels, relative to the chase camera.
+ * The ship (the camera anchor) sits low and centered. Ahead is up, toward
+ * the horizon, and smaller.
  */
 export function project(worldX: number, worldY: number): Projected {
-  const scale = depthScale(worldX);
-  const x = VIEW_W / 2 + (worldY - WORLD_H / 2) * scale;
-  const y = HORIZON_Y + (DEPTH_SPAN * (scale - FAR_SCALE)) / (1 - FAR_SCALE);
-  return { x, y, scale };
+  const cam = getCamera();
+  const dx = worldX - cam.x;
+  const dy = worldY - cam.y;
+  const perspScale = perspective(dx);
+  const zoom = zoomAt(perspScale);
+  return {
+    x: VIEW_W / 2 + dy * zoom,
+    y: screenY(perspScale),
+    scale: zoom,
+  };
 }
 
 /**
- * Logical view pixels → world point. The inverse of `project` inside the
- * playfield. Above the horizon and below the near edge clamp onto the far
- * and near borders, so a finger in the sky still aims at the end of the road
- * instead of a world coordinate that doesn't exist.
+ * View pixels → world point. Inverse of `project` for the current camera.
+ * Callers that aim a finger clamp into the visible road first; this function
+ * itself does not, so a projected point round-trips.
  */
 export function unproject(viewX: number, viewY: number): Projected {
-  const yClamped = Math.min(VIEW_H, Math.max(HORIZON_Y, viewY));
-  const scale = FAR_SCALE + ((yClamped - HORIZON_Y) / DEPTH_SPAN) * (1 - FAR_SCALE);
-  const safe = Math.max(scale, FAR_SCALE);
-  const t = (1 / safe - 1) / DEPTH_K;
-  const worldX = t * WORLD_W;
-  const worldY = WORLD_H / 2 + (viewX - VIEW_W / 2) / safe;
-  return { x: worldX, y: worldY, scale: safe };
+  const cam = getCamera();
+  const perspScale = perspFromY(viewY);
+  const zoom = zoomAt(perspScale);
+  const dx = dxFromPersp(perspScale);
+  const dy = (viewX - VIEW_W / 2) / zoom;
+  return { x: cam.x + dx, y: cam.y + dy, scale: zoom };
 }
 
 /**
- * Fit the logical view inside the window without stretching. Bars (not a
- * rescale of the sim) fill the leftover space.
- * Analogy: a movie frame dropped into a TV, black bars and all, so the
- * picture isn't squashed to match the bezel.
+ * Scale the picture until it covers the window, then crop the overflow.
+ * Letterboxing a tall phone left the ship tiny again. Cover keeps the
+ * fighter large on both a widescreen and a phone. The sim floor is not
+ * resized. Analogy: zooming a photo until it fills the frame, and letting
+ * the edges fall outside the mat.
  */
 export function fitView(cssW: number, cssH: number, dpr: number): Frame {
   const safeW = Math.max(cssW, 1);
   const safeH = Math.max(cssH, 1);
-  const scale = Math.min(safeW / VIEW_W, safeH / VIEW_H);
+  const scale = Math.max(safeW / VIEW_W, safeH / VIEW_H);
   const drawW = VIEW_W * scale;
   const drawH = VIEW_H * scale;
   return {
@@ -118,15 +167,20 @@ export function fitView(cssW: number, cssH: number, dpr: number): Frame {
   };
 }
 
-/** Browser pointer → world point, using the same fit the renderer drew with. */
+/**
+ * Browser pointer → world point. Sky and the area below the near lip clamp
+ * onto the visible road, so a finger past the horizon still aims at the far
+ * mark instead of a world coordinate off the filmed patch.
+ */
 export function clientToWorld(
   clientX: number,
   clientY: number,
   rect: { left: number; top: number },
   frame: Frame
 ): Projected {
-  const scale = frame.scale > 0 ? frame.scale : 1;
-  const viewX = (clientX - rect.left - frame.offsetX) / scale;
-  const viewY = (clientY - rect.top - frame.offsetY) / scale;
+  const fit = frame.scale > 0 ? frame.scale : 1;
+  const viewX = (clientX - rect.left - frame.offsetX) / fit;
+  let viewY = (clientY - rect.top - frame.offsetY) / fit;
+  viewY = Math.min(VIEW_H, Math.max(HORIZON_Y, viewY));
   return unproject(viewX, viewY);
 }

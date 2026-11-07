@@ -2,7 +2,7 @@
   "private": true,
   "name": "retro-space-blaster-2",
   "version": "0.1.0",
-  "description": "Retro Space Blaster 2 — the same sim and pace as Retro Space Blaster, drawn with a mild behind-the-ship camera on a fixed 1280×720 floor.",
+  "description": "Retro Space Blaster 2 — the same sim and pace as Retro Space Blaster, drawn with a tight behind-the-ship camera on a fixed 1280×720 floor.",
   "license": "MIT",
   "type": "module",
   "engines": {

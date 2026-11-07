@@ -1,6 +1,6 @@
 # Retro Space Blaster 2
 
-Same campaign, ships, weapons, and pace as Retro Space Blaster. The picture is a mild behind-the-ship view of a fixed 1280×720 floor. The simulation files (`game.js`, `entities.js`, `ships.js`, `upgrades.js`, `map.js`, `config.js`) are unchanged copies.
+Same campaign, ships, weapons, and pace as Retro Space Blaster. The picture is a tight, steep behind-the-ship view of a fixed 1280×720 floor. The simulation files (`game.js`, `entities.js`, `ships.js`, `upgrades.js`, `map.js`, `config.js`) are unchanged copies.
 
 This folder is its own Devvit app (`retro-space-blaster-2`). Uploading it does not replace the original app. Setup, local play, and how to give it a GitHub repo of its own: [docs/SEQUEL-SETUP.md](docs/SEQUEL-SETUP.md).
 

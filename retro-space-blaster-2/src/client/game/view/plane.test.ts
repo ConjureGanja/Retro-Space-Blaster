@@ -1,99 +1,81 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  DEPTH_SPAN,
   FAR_SCALE,
+  HALF_WIDTH,
   HORIZON_Y,
+  LOOK_AHEAD,
+  SHIP_SCREEN_FRAC,
   VIEW_H,
   VIEW_W,
-  WORLD_H,
-  WORLD_W,
   clientToWorld,
-  depthScale,
   fitView,
+  getCamera,
   project,
+  setCamera,
   unproject,
 } from './plane.ts';
 
-const EPS = 1e-6;
+const EPS = 1e-4;
 
-test('near edge is full size at the bottom and the far edge is 72% at the horizon', () => {
-  assert.ok(Math.abs(depthScale(0) - 1) < EPS);
-  assert.ok(Math.abs(depthScale(WORLD_W) - FAR_SCALE) < EPS);
-  const near = project(0, WORLD_H / 2);
-  const far = project(WORLD_W, WORLD_H / 2);
-  assert.ok(Math.abs(near.y - VIEW_H) < EPS);
-  assert.ok(Math.abs(far.y - HORIZON_Y) < EPS);
-  assert.ok(Math.abs(near.scale - 1) < EPS);
-  assert.ok(Math.abs(far.scale - FAR_SCALE) < EPS);
-  assert.ok(far.y < near.y);
+test('the ship sits low, centered, and much larger than one world pixel', () => {
+  setCamera(400, 300);
+  const ship = project(400, 300);
+  assert.ok(Math.abs(ship.x - VIEW_W / 2) < EPS);
+  assert.ok(ship.y > VIEW_H * 0.74);
+  assert.ok(ship.y < VIEW_H * 0.86);
+  assert.ok(Math.abs(ship.y - VIEW_H * SHIP_SCREEN_FRAC) < 2);
+  // Old lens was about 1 view pixel per world pixel. This crop is several times closer.
+  assert.ok(ship.scale > 5);
 });
 
-test('lateral axis maps left to right and the near edge spans the world height', () => {
-  const left = project(0, 0);
-  const right = project(0, WORLD_H);
-  const mid = project(0, WORLD_H / 2);
-  assert.ok(Math.abs(left.x - (VIEW_W - WORLD_H) / 2) < EPS);
-  assert.ok(Math.abs(right.x - (VIEW_W + WORLD_H) / 2) < EPS);
-  assert.ok(Math.abs(mid.x - VIEW_W / 2) < EPS);
-  assert.ok(Math.abs(right.x - left.x - WORLD_H) < EPS);
+test('the road ahead shrinks hard toward the horizon', () => {
+  setCamera(400, 300);
+  const ship = project(400, 300);
+  const far = project(400 + LOOK_AHEAD, 300);
+  assert.ok(far.y < ship.y);
+  assert.ok(Math.abs(far.y - HORIZON_Y) < 2);
+  assert.ok(far.scale < ship.scale * 0.4);
+  assert.ok(far.scale / ship.scale < FAR_SCALE / 0.5);
+});
+
+test('the visible corridor fills the glass at the ship', () => {
+  setCamera(400, 300);
+  const right = project(400, 300 + HALF_WIDTH);
+  const left = project(400, 300 - HALF_WIDTH);
+  assert.ok(Math.abs(right.x - VIEW_W) < 1);
+  assert.ok(Math.abs(left.x - 0) < 1);
 });
 
 test('project then unproject returns the same floor mark', () => {
-  for (const x of [0, 120, 640, 1000, WORLD_W]) {
-    for (const y of [-40, 0, 180, 360, 720, 800]) {
+  setCamera(250, 400);
+  for (const dx of [-60, 0, 40, 180, 400]) {
+    for (const dy of [-90, 0, 30, 100]) {
+      const x = 250 + dx;
+      const y = 400 + dy;
       const p = project(x, y);
       const back = unproject(p.x, p.y);
-      assert.ok(Math.abs(back.x - x) < 1e-4, `x ${x} -> ${back.x}`);
-      assert.ok(Math.abs(back.y - y) < 1e-4, `y ${y} -> ${back.y}`);
+      assert.ok(Math.abs(back.x - x) < 1e-2, `x ${x} -> ${back.x}`);
+      assert.ok(Math.abs(back.y - y) < 1e-2, `y ${y} -> ${back.y}`);
     }
   }
 });
 
-test('sky and the near margin clamp onto the ends of the road', () => {
-  const sky = unproject(VIEW_W / 2, 0);
-  const pastNear = unproject(VIEW_W / 2, VIEW_H + 40);
-  assert.ok(Math.abs(sky.x - WORLD_W) < 1e-4);
-  assert.ok(Math.abs(pastNear.x - 0) < 1e-4);
+test('a finger in the sky aims at the far end of the filmed road', () => {
+  setCamera(500, 360);
+  const frame = fitView(VIEW_W, VIEW_H, 1);
+  const sky = clientToWorld(VIEW_W / 2, 0, { left: 0, top: 0 }, frame);
+  assert.ok(Math.abs(sky.x - (500 + LOOK_AHEAD)) < 1);
+  assert.ok(Math.abs(sky.y - 360) < 1);
+  assert.equal(getCamera().x, 500);
 });
 
-test('forward motion on the center line moves up the glass', () => {
-  const a = project(200, WORLD_H / 2);
-  const b = project(800, WORLD_H / 2);
-  assert.ok(b.y < a.y);
-  assert.ok(Math.abs(b.x - a.x) < 1e-6);
-});
-
-test('letterbox keeps the view square to the window', () => {
-  const wide = fitView(1920, 1080, 2);
-  assert.ok(wide.scale > 0);
-  const drawnW = VIEW_W * wide.scale;
-  const drawnH = VIEW_H * wide.scale;
-  assert.ok(drawnW <= 1920 + EPS);
-  assert.ok(drawnH <= 1080 + EPS);
-  assert.ok(Math.abs(wide.offsetX * 2 + drawnW - 1920) < 1e-4);
-  assert.ok(Math.abs(wide.offsetY * 2 + drawnH - 1080) < 1e-4);
-
-  const back = clientToWorld(
-    wide.offsetX + (VIEW_W / 2) * wide.scale,
-    wide.offsetY + HORIZON_Y * wide.scale,
-    {
-      left: 0,
-      top: 0,
-    },
-    wide
-  );
-  assert.ok(Math.abs(back.x - WORLD_W) < 1e-3);
-  assert.ok(Math.abs(back.y - WORLD_H / 2) < 1e-3);
-});
-
-test('ships past the near edge keep moving off the bottom of the glass', () => {
-  const past = project(-200, WORLD_H / 2);
-  assert.ok(past.scale > 1);
-  assert.ok(past.y > VIEW_H);
-});
-
-test('depth span matches the round-circle pitch', () => {
-  assert.ok(Math.abs(DEPTH_SPAN - FAR_SCALE * WORLD_W) < EPS);
-  assert.ok(Math.abs(VIEW_H - HORIZON_Y - DEPTH_SPAN) < EPS);
+test('the picture covers the window instead of shrinking to fit inside it', () => {
+  const tall = fitView(390, 844, 2);
+  const drawnW = VIEW_W * tall.scale;
+  const drawnH = VIEW_H * tall.scale;
+  assert.ok(drawnW >= 390 - EPS);
+  assert.ok(drawnH >= 844 - EPS);
+  assert.ok(tall.offsetX < 0);
+  assert.ok(Math.abs(tall.offsetY) < 1);
 });
