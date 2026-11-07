@@ -17,7 +17,15 @@ import tseslint from 'typescript-eslint';
 
 export default defineConfig([
   // Never lint generated output, vendored history, or art sources.
-  globalIgnores(['dist/**', 'node_modules/**', 'legacy/**', 'art/**', 'public/**', 'coverage/**']),
+  globalIgnores([
+    'dist/**',
+    'node_modules/**',
+    'legacy/**',
+    'art/**',
+    'public/**',
+    'coverage/**',
+    'retro-space-blaster-2/**',
+  ]),
 
   // ---------- 1. The game (plain JS, runs in the browser) ----------
   {
