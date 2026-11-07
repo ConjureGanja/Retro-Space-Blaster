@@ -1,0 +1,22 @@
+# Keeps every editor (VS Code, Cursor, Notepad++) agreeing on basics.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# Original game code uses 4 spaces — keep editors consistent with it.
+[src/client/game/*.js]
+indent_size = 4
+[src/client/{game.html,styles/main.css}]
+indent_size = 4
+
+[*.bat]
+end_of_line = crlf
+
+[*.md]
+trim_trailing_whitespace = false

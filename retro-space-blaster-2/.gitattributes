@@ -1,0 +1,19 @@
+# Normalise line endings: LF in the repo, so Windows + CI (Linux) agree.
+* text=auto eol=lf
+
+# Windows batch files MUST be CRLF or cmd.exe misreads labels/GOTOs.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets — never diff or line-convert.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.mp3 binary
+*.woff binary
+*.woff2 binary
+
+# The art SVGs are multi-MB embedded-PNG wrappers; text diffs are useless noise.
+art/**/*.svg -diff linguist-generated
+legacy/** linguist-vendored

@@ -1,5 +1,8 @@
 # Generated / vendored — never format
 dist/
+
+# Sequel app tree. It has its own Prettier run; the parent check leaves it alone.
+retro-space-blaster-2/
 node_modules/
 public/
 package-lock.json
