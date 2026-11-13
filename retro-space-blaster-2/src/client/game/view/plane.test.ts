@@ -22,8 +22,8 @@ test('the ship sits low, centered, and much larger than one world pixel', () => 
   setCamera(400, 300);
   const ship = project(400, 300);
   assert.ok(Math.abs(ship.x - VIEW_W / 2) < EPS);
-  assert.ok(ship.y > VIEW_H * 0.74);
-  assert.ok(ship.y < VIEW_H * 0.86);
+  assert.ok(ship.y > VIEW_H * (2 / 3));
+  assert.ok(ship.y < VIEW_H * 0.8);
   assert.ok(Math.abs(ship.y - VIEW_H * SHIP_SCREEN_FRAC) < 2);
   // Old lens was about 1 view pixel per world pixel. This crop is several times closer.
   assert.ok(ship.scale > 5);

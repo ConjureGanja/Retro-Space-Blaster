@@ -315,17 +315,19 @@ function drawShip() {
 
     const roll = currentRoll(ship);
     const base = String(Runtime.shipSpriteName || 'playership1').replace(/HD$/, '');
-    // One plate per ship, from art/sprites/rear/<id>.png. The exhaust glow
-    // is already painted on the two nozzles, so we do not add a second plume.
-    // Span is the wings (the long side). 6.4 hit-radii puts those nozzles
-    // about as wide as the hit circle; the wings hang past it. Lift slides
-    // the painted hull onto that circle — the file has empty space around it.
+    // One plate per ship. The nozzle glow is painted into the art, so there
+    // is no second plume here. Wings are the long side of the picture: about
+    // a fifth of the logical view, on a desktop and on a sideways phone,
+    // because both show that same view (the window only scales it).
+    // The small lift is paint only. The hit circle and the aim point stay
+    // on p, the sim position, like a sticker shifted on a window without
+    // moving the person outside.
     const key = `rear-${base}`;
     const art = Sprites.get(key);
     const aspect = art && art.width ? art.height / art.width : 0.5;
-    const span = ship.r * 6.4 * p.scale;
+    const span = 0.2 * VIEW_W;
     const drawnH = span * aspect;
-    const liftFrac = { playership1: 0.11, playership2: 0.09, playership3: 0.10, playership4: 0.08, playership5: 0.07 };
+    const liftFrac = { playership1: 0.11, playership2: 0.09, playership3: 0.1, playership4: 0.08, playership5: 0.07 };
     const drawY = p.y - (liftFrac[base] || 0.09) * drawnH;
     ctx.imageSmoothingEnabled = false;
     drawSprite(ctx, key, p.x, drawY, span, roll);
@@ -337,7 +339,7 @@ function drawShip() {
         ctx.translate(p.x + Math.sin(roll) * nose, drawY - Math.cos(roll) * nose);
         ctx.globalAlpha = ship.muzzleFlash / 4;
         ctx.fillStyle = '#ffffff'; ctx.shadowBlur = 20; ctx.shadowColor = '#88ffaa';
-        ctx.beginPath(); ctx.arc(0, 0, (4 + Math.random() * 2) * p.scale, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, 0, 4 + Math.random() * 2, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
     }
 }

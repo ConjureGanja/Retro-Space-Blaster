@@ -79,10 +79,13 @@ canvas {
     transition: width 0.15s ease-out; box-shadow: 0 0 12px #ffcc00;
 }
 
-/* Ship special ability HUD */
+/* Special meter and sector progress sit in the top center, under the XP
+   strip. The ship lives in the lower third; these used to lie on its nozzles.
+   On a phone they shift into the gap between the left move pad and the
+   right-hand FIRE / SPECIAL buttons. */
 #ability-hud {
-    position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%);
-    text-align: center; z-index: 20; width: 260px; pointer-events: none;
+    position: absolute; top: 32px; left: 50%; transform: translateX(-50%);
+    text-align: center; z-index: 20; width: min(240px, 32vw); pointer-events: none;
     background: rgba(0,0,0,0.5); padding: 6px 10px;
     border: 1px solid rgba(255,255,255,0.08);
     backdrop-filter: blur(6px);
@@ -93,10 +96,10 @@ canvas {
 .ability-bar-bg { height: 6px; width: 100%; border: 1px solid #333; background: #0a0a0a; border-radius: 2px; }
 #ability-bar-fill { height: 100%; background: #00ffff; width: 100%; transition: width 0.08s linear; border-radius: 2px; }
 
-/* Sector progress track (bottom of screen) */
+/* Sector progress — thin strip under the XP bar, not under the ship. */
 #progress-hud {
-    position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
-    width: 58%; max-width: 680px; z-index: 20; pointer-events: none;
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    width: min(420px, 36%); z-index: 20; pointer-events: none;
 }
 #progress-track {
     position: relative; height: 5px; background: #0e0e0e;
@@ -144,8 +147,9 @@ body.touch-ui.playing #touch-controls { display: block; }
 }
 #btn-fire.held, #btn-special.held { transform: scale(0.94); filter: brightness(1.25); }
 
-body.touch-ui #ability-hud { width: 200px; bottom: 18px; }
-body.touch-ui #progress-hud { width: 36%; }
+body.touch-ui #ability-hud { top: 70px; left: 56%; width: min(190px, 26vw); }
+body.touch-ui #progress-hud { top: 52px; left: 56%; width: min(200px, 28vw); }
+body.touch-ui #progress-boss-icon { right: 0; }
 
 /* Tall phone: stop and ask them to turn it sideways. */
 #rotate-overlay {
@@ -163,7 +167,7 @@ body.need-rotate #touch-controls { display: none; }
 /* Boss HUD — full width banner across the top during boss battles */
 #boss-hud {
     display: none;
-    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    position: absolute; top: 96px; left: 50%; transform: translateX(-50%);
     width: min(88%, 860px); text-align: center; z-index: 26;
     pointer-events: none;
     background: rgba(0,0,0,0.65); padding: 8px 16px;

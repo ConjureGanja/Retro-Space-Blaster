@@ -43,8 +43,9 @@ export const LOOK_BEHIND = 78;
  */
 export const HALF_WIDTH = 110;
 
-/** Where the ship sits down the glass. 0 is the top, 1 is the bottom. */
-export const SHIP_SCREEN_FRAC = 0.8;
+/** Where the ship sits down the glass. 0 is the top, 1 is the bottom.
+ *  Lower third, but high enough that the nozzles clear the bottom meters. */
+export const SHIP_SCREEN_FRAC = 0.74;
 
 const DEPTH = LOOK_AHEAD + LOOK_BEHIND;
 const DEPTH_K = 1 / FAR_SCALE - 1;
