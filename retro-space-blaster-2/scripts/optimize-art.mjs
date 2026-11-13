@@ -103,7 +103,7 @@ async function main() {
     return files;
   }
 
-  const sources = await listSources(SRC_DIR);
+  const sources = (await listSources(SRC_DIR)).filter((file) => !file.includes('@2x.'));
 
   let rendered = 0;
   let inBytes = 0;
@@ -113,39 +113,51 @@ async function main() {
     const src = path.join(SRC_DIR, file);
     const out = path.join(OUT_DIR, `${file.replace(/\.[^.]+$/, '')}.webp`);
     await fs.mkdir(path.dirname(out), { recursive: true });
-    const srcStat = await fs.stat(src);
-    inBytes += srcStat.size;
 
-    // Skip files that are already up to date (output newer than source).
-    if (!forceAll && (await mtime(out)) >= srcStat.mtimeMs) {
-      // Await first, THEN add: `total += await x` reads `total` before the
-      // await, so parallel workers would overwrite each other's sums.
+    // Rear ships ship a 512px @2x twin. Encode from that so a HiDPI screen
+    // gets real pixels, and use nearest-neighbor so the blocks stay squares.
+    // Analogy: photocopying graph paper on the "crisp" setting, not "photo".
+    let encodePath = src;
+    const hiRes = src.replace(/\.png$/i, '@2x.png');
+    if (file.startsWith('rear/') && file.toLowerCase().endsWith('.png')) {
+      if ((await mtime(hiRes)) > 0) encodePath = hiRes;
+    }
+
+    const srcStat = await fs.stat(encodePath);
+    inBytes += srcStat.size;
+    const sourceStamp = Math.max(srcStat.mtimeMs, await mtime(src));
+
+    if (!forceAll && (await mtime(out)) >= sourceStamp) {
       const { size } = await fs.stat(out);
       outBytes += size;
       return;
     }
 
     const width = WIDTH_OVERRIDES[file] ?? SPRITE_WIDTH;
-    const isSvg = file.toLowerCase().endsWith('.svg');
+    const isSvg = encodePath.toLowerCase().endsWith('.svg');
+    const pixelArt = file.startsWith('rear/');
 
-    // SVGs: pick a render density so the *rasterised* width is ~`width`
-    // up front (rendering at 72dpi then upscaling would look soft).
-    // Every source frame here is 1920px wide; meta.width covers any other size.
     let input;
     if (isSvg) {
-      const meta = await sharp(src, { limitInputPixels: false }).metadata();
+      const meta = await sharp(encodePath, { limitInputPixels: false }).metadata();
       const density = Math.max(1, Math.round((72 * width) / (meta.width || 1920)));
-      input = sharp(src, { density, limitInputPixels: false });
+      input = sharp(encodePath, { density, limitInputPixels: false });
     } else {
-      input = sharp(src, { limitInputPixels: false });
+      input = sharp(encodePath, { limitInputPixels: false });
     }
 
-    await input
-      .resize({ width, withoutEnlargement: !isSvg })
+    const resized = input.resize({
+      width,
+      withoutEnlargement: !isSvg,
+      ...(pixelArt ? { kernel: 'nearest' } : {}),
+    });
+    await resized
       .webp(
-        OPAQUE.has(file)
-          ? { quality: 80, effort: 5 }
-          : { quality: 88, alphaQuality: 100, effort: 5 }
+        pixelArt
+          ? { lossless: true, effort: 5 }
+          : OPAQUE.has(file)
+            ? { quality: 80, effort: 5 }
+            : { quality: 88, alphaQuality: 100, effort: 5 }
       )
       .toFile(out);
 

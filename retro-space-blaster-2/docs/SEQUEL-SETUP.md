@@ -65,7 +65,9 @@ Player ships in a fight use one tail-on PNG each:
 
 `art/sprites/rear/<shipId>.png`
 
-Ship ids are `playership1` through `playership5` (Falcon, Talon, Wraith, Aegis, Vulcan). The PNG should be transparent, with the tail and both thrusters toward the camera (the bottom of the picture) and the nose toward the top. Replace the labeled placeholder files, then run `npm run art`. The game rolls that one sprite when you strafe. It does not swap plates. The hangar still shows the original HD select art (`art/sprites/playership1HD.svg` and the same pattern for 2–5).
+Replace `art/sprites/rear/playership1.png` through `playership5.png` (and the matching `playershipN@2x.png` beside them). The 256px file is the master you edit; the 512px `@2x` file is what `npm run art` encodes, with nearest-neighbor scaling so the pixels stay square. Output is `public/assets/sprites/rear/playershipN.webp`. Do not put these files next to the hangar art or they will overwrite `playershipN.webp`.
+
+Tail and both nozzles point at the bottom of the PNG (toward the camera). The nose points at the top. The game rolls that one image when you strafe. It does not swap in left/right/up/down plates. The hangar still uses `art/sprites/playership1HD.svg` through `playership5HD.svg`.
 
 On a phone the game wants landscape. Turn the phone sideways: drag on the left to move, FIRE and SPECIAL on the right. FIRE holds the same flag as a left click, so the shot rate is still the ship's fire delay. If the phone is upright, a card asks you to rotate and a running fight pauses. The page tries `screen.orientation.lock('landscape')`. If the browser refuses, the card stays until you turn the phone yourself.
 
