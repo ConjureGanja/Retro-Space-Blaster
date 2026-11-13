@@ -30,7 +30,7 @@
     "@devvit/web": "0.15.1",
     "@fontsource/press-start-2p": "5.3.0",
     "@hono/node-server": "2.1.5",
-    "hono": "4.13.14"
+    "hono": "4.13.18"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
