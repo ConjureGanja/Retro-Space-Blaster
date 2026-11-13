@@ -33,10 +33,18 @@ function aim(canvas, x, y) {
     input.mouseY = world.y;
 }
 
-function remember(canvas, x, y) {
+export function setAim(canvas, x, y) {
     clientX = x;
     clientY = y;
     aim(canvas, x, y);
+}
+
+function touchUi() {
+    return document.body.classList.contains('touch-ui');
+}
+
+function remember(canvas, x, y) {
+    setAim(canvas, x, y);
 }
 
 /**
@@ -64,6 +72,9 @@ export function initInput(canvas) {
     // keeps firing / Chrono Field keeps draining with no button held.
     // Analogy: a dead-man's switch — let go anywhere and the train stops.
     window.addEventListener('mouseup', e => {
+        // Phone buttons own clickLeft / clickRight. A synthesized mouseup
+        // would drop FIRE while the thumb is still down.
+        if (touchUi()) return;
         if (e.button === 0) input.clickLeft = false;
         if (e.button === 2) input.clickRight = false;
     });
@@ -74,8 +85,10 @@ export function initInput(canvas) {
     document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); });
     canvas.addEventListener('touchcancel', releaseAll);
 
-    // Touch support mimicking the mouse
+    // On a phone the left pad moves and the FIRE button shoots. The old
+    // "one finger does both" path would fire while you were only steering.
     canvas.addEventListener('touchstart', e => {
+        if (touchUi()) return;
         e.preventDefault();
         remember(canvas, e.touches[0].clientX, e.touches[0].clientY);
         if (e.touches.length === 1) input.clickLeft = true;
@@ -83,11 +96,13 @@ export function initInput(canvas) {
     }, { passive: false });
 
     canvas.addEventListener('touchmove', e => {
+        if (touchUi()) return;
         e.preventDefault();
         remember(canvas, e.touches[0].clientX, e.touches[0].clientY);
     }, { passive: false });
 
     canvas.addEventListener('touchend', e => {
+        if (touchUi()) return;
         e.preventDefault();
         if (e.touches.length === 0) { input.clickLeft = false; input.clickRight = false; }
         else if (e.touches.length === 1) { input.clickRight = false; }

@@ -11,10 +11,11 @@ import '../styles/main.css';
 
 import { STATE, Runtime } from './config.js';
 import { initInput, syncPointer } from './input.js';
+import { initTouch, syncTouchMode } from './touch.js';
+import { initRenderer, draw, setRollPreview } from './render.js';
 import { Sprites } from './sprites.js';
 import { Game } from './game.js';
 import { UI } from './ui.js';
-import { initRenderer, draw } from './render.js';
 import { FX } from './fx.js';
 import { CONSTANTS } from './config.js';
 import { input } from './input.js';
@@ -37,7 +38,7 @@ const canvas = document.getElementById('gameCanvas');
 async function attachDevTools() {
     if (import.meta.env.MODE === 'production') return;
     const { Dev } = await import('./dev.js');
-    window.RSB = { Game, Runtime, STATE, CONSTANTS, input, Sprites, dev: Dev };
+    window.RSB = { Game, Runtime, STATE, CONSTANTS, input, Sprites, dev: Dev, setRoll: setRollPreview };
     console.info('[RSB] dev build — run RSB.dev.help() for debug commands');
 }
 
@@ -70,6 +71,7 @@ function step() {
     const ship = Game.entities.ship;
     if (ship) setCamera(ship.x, ship.y);
     syncPointer(canvas);
+    syncTouchMode(Runtime.state === STATE.PLAYING);
     if (Runtime.state === STATE.PLAYING) {
         Game.update();
     } else {
@@ -125,6 +127,7 @@ async function boot() {
     await store.hydrate();
 
     initInput(canvas);
+    initTouch(canvas);
     initRenderer(canvas);
     installLogicalPlane();
     Game.init(canvas);

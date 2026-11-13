@@ -61,9 +61,17 @@ Leave these files as copies of the original if you want the same pace:
 - `src/client/game/map.js`
 - `src/client/game/config.js`
 
+Player ships in a fight use one tail-on PNG each:
+
+`art/sprites/rear/<shipId>.png`
+
+Ship ids are `playership1` through `playership5` (Falcon, Talon, Wraith, Aegis, Vulcan). The PNG should be transparent, with the tail and both thrusters toward the camera (the bottom of the picture) and the nose toward the top. Replace the labeled placeholder files, then run `npm run art`. The game rolls that one sprite when you strafe. It does not swap plates. The hangar still shows the original HD select art (`art/sprites/playership1HD.svg` and the same pattern for 2–5).
+
+On a phone the game wants landscape. Turn the phone sideways: drag on the left to move, FIRE and SPECIAL on the right. FIRE holds the same flag as a left click, so the shot rate is still the ship's fire delay. If the phone is upright, a card asks you to rotate and a running fight pauses. The page tries `screen.orientation.lock('landscape')`. If the browser refuses, the card stays until you turn the phone yourself.
+
 A video reference can change colors and the camera. It should not change shot count, wave timers, or upgrade effects. The base gun is still one bolt. Spread, twin cannons, and flak add the extra shots.
 
-Player ships are rear views only (`scripts/build-rear-ships.mjs` writes five poses per ship into `art/sprites/`). The hangar has no SD/HD switch. Enemies and bosses always use their HD file.
+Enemies and bosses always use their HD file. There is no SD/HD switch.
 
 ## Camera, short version
 
@@ -71,4 +79,6 @@ Player ships are rear views only (`scripts/build-rear-ships.mjs` writes five pos
 - The camera is bolted just behind the ship. The fighter sits low in the frame, large, and the road ahead shrinks toward a horizon near the top. Far sprites are about a third the size of the ship.
 - Only about ±110 world pixels of width stay in frame at the ship, and about 430 world pixels of road stay visible ahead. That crop is the zoom. It does not change how fast anything moves.
 - The picture scales until it covers the window, then the extra edges are cropped. A tall phone does not shrink the ship into a strip. The floor itself stays 1280×720.
-- Mouse, and the existing one-finger touch control, are unprojected into sim coordinates every frame, so holding the cursor forward keeps the ship flying forward. Left click still fires. Right click is still the ship special. Esc or P still pauses.
+- Mouse aims the ship. On a phone, drag the left side of the screen instead. Holding that point keeps the ship flying that way.
+- Left click, or the FIRE button, shoots. Right click, or SPECIAL, is the ship ability. Esc or P pauses.
+- Upright phones show ROTATE YOUR DEVICE and pause a fight until the phone is sideways.

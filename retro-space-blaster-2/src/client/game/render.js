@@ -14,6 +14,7 @@ import { input } from './input.js';
 import { FX } from './fx.js';
 import { drawSprite, Sprites } from './sprites.js';
 import { project, setCamera, getCamera, VIEW_W, VIEW_H, LOOK_AHEAD, LOOK_BEHIND, HALF_WIDTH } from './view/plane.ts';
+import { easeRoll } from './view/roll.ts';
 import { getFrame } from './view/frame.ts';
 
 let ctx;
@@ -279,6 +280,26 @@ function fillBeam(x0, y0, half, color, alpha, core) {
     ctx.fill();
 }
 
+let shipRoll = 0;
+/** Screenshot hook. null means follow the stick. */
+let rollOverride = null;
+
+/** Force a roll angle for close-up checks. Pass null to follow steering again. */
+export function setRollPreview(radians) {
+    rollOverride = radians;
+}
+
+/**
+ * Lean the one rear sprite toward a sideways shove, then ease it flat.
+ * Positive roll tips the right wing down (canvas y grows downward).
+ * World +y is screen-right, so a right strafe rolls positive.
+ */
+function currentRoll(ship) {
+    if (rollOverride !== null) return rollOverride;
+    shipRoll = easeRoll(shipRoll, ship.yv);
+    return shipRoll;
+}
+
 function drawShip() {
     const ship = Game.entities.ship;
     if (!ship || ship.dead || ship.explodeTime) return;
@@ -292,34 +313,21 @@ function drawShip() {
         drawSprite(ctx, 'shieldEffect', p.x, p.y, ship.r * 4.5 * p.scale, Game.tick * 0.025, alpha);
     }
 
-    // The hull art already banks and pitches. Rotating it again would lean a
-    // picture that was drawn leaning. Nose stays toward the horizon.
-    drawSprite(ctx, playerShipKey(ship), p.x, p.y, ship.r * 4.6 * p.scale, 0);
+    const roll = currentRoll(ship);
+    const base = String(Runtime.shipSpriteName || 'playership1').replace(/HD$/, '');
+    // One plate per ship. Roll is only this rotation — the hit circle is
+    // still the sim's circle, not the tilted picture.
+    drawSprite(ctx, `rear-${base}`, p.x, p.y, ship.r * 5.4 * p.scale, roll);
 
     if (ship.muzzleFlash > 0) {
-        const reach = ship.r * 3.1 * p.scale;
+        const reach = ship.r * 3.4 * p.scale;
         ctx.save();
-        ctx.translate(p.x, p.y - reach);
+        ctx.translate(p.x + Math.sin(roll) * reach, p.y - Math.cos(roll) * reach);
         ctx.globalAlpha = ship.muzzleFlash / 4;
         ctx.fillStyle = '#ffffff'; ctx.shadowBlur = 20; ctx.shadowColor = '#88ffaa';
         ctx.beginPath(); ctx.arc(0, 0, (5 + Math.random() * 3) * p.scale, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
     }
-}
-
-/**
- * Which rear-view plate to show. Lateral speed wins over forward speed so a
- * strafe reads as a bank even while the ship is also climbing the road.
- * World +y is screen-right; world +x is toward the horizon (up the glass).
- */
-function playerShipKey(ship) {
-    const base = String(Runtime.shipSpriteName || 'playership1').replace(/HD$/, '');
-    const ax = Math.abs(ship.xv);
-    const ay = Math.abs(ship.yv);
-    let pose = 'back';
-    if (ay >= 1.15 && ay >= ax) pose = ship.yv > 0 ? 'right' : 'left';
-    else if (ax >= 1.15) pose = ship.xv > 0 ? 'up' : 'down';
-    return `${base}-${pose}`;
 }
 
 function drawAsteroids() {

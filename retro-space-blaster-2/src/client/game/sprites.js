@@ -67,33 +67,15 @@ const SPRITE_FILES = {
     playership5:     '/assets/sprites/playership5.webp',
     playership5HD:   '/assets/sprites/playership5HD.webp',
 
-    // Rear views for the chase camera. One pose per stick direction.
-    // Built by scripts/build-rear-ships.mjs from the HD masters.
-    'playership1-back':  '/assets/sprites/playership1-back.webp',
-    'playership1-left':  '/assets/sprites/playership1-left.webp',
-    'playership1-right': '/assets/sprites/playership1-right.webp',
-    'playership1-up':    '/assets/sprites/playership1-up.webp',
-    'playership1-down':  '/assets/sprites/playership1-down.webp',
-    'playership2-back':  '/assets/sprites/playership2-back.webp',
-    'playership2-left':  '/assets/sprites/playership2-left.webp',
-    'playership2-right': '/assets/sprites/playership2-right.webp',
-    'playership2-up':    '/assets/sprites/playership2-up.webp',
-    'playership2-down':  '/assets/sprites/playership2-down.webp',
-    'playership3-back':  '/assets/sprites/playership3-back.webp',
-    'playership3-left':  '/assets/sprites/playership3-left.webp',
-    'playership3-right': '/assets/sprites/playership3-right.webp',
-    'playership3-up':    '/assets/sprites/playership3-up.webp',
-    'playership3-down':  '/assets/sprites/playership3-down.webp',
-    'playership4-back':  '/assets/sprites/playership4-back.webp',
-    'playership4-left':  '/assets/sprites/playership4-left.webp',
-    'playership4-right': '/assets/sprites/playership4-right.webp',
-    'playership4-up':    '/assets/sprites/playership4-up.webp',
-    'playership4-down':  '/assets/sprites/playership4-down.webp',
-    'playership5-back':  '/assets/sprites/playership5-back.webp',
-    'playership5-left':  '/assets/sprites/playership5-left.webp',
-    'playership5-right': '/assets/sprites/playership5-right.webp',
-    'playership5-up':    '/assets/sprites/playership5-up.webp',
-    'playership5-down':  '/assets/sprites/playership5-down.webp',
+    // In-fight tail views only. Hangar art stays playership{n}HD.
+    // Drop a transparent PNG at art/sprites/rear/<id>.png (tail toward the
+    // camera). npm run art writes public/assets/sprites/rear/<id>.webp.
+    // The files in the repo right now are labeled placeholders.
+    'rear-playership1': '/assets/sprites/rear/playership1.webp',
+    'rear-playership2': '/assets/sprites/rear/playership2.webp',
+    'rear-playership3': '/assets/sprites/rear/playership3.webp',
+    'rear-playership4': '/assets/sprites/rear/playership4.webp',
+    'rear-playership5': '/assets/sprites/rear/playership5.webp',
 
     // Roguelite upgrade card icons (keys match upgrade `icon` in upgrades.js)
     upgDouble:       '/assets/sprites/statboost-twin cannons.webp',

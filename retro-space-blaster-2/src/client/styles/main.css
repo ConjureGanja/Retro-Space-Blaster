@@ -114,6 +114,52 @@ canvas {
     font-family: sans-serif;
 }
 
+/* Phone: left thumb steers, right thumb fires. Hidden until a run starts
+   so the hangar buttons stay tappable. */
+#touch-controls { display: none; }
+body.touch-ui.playing #touch-controls { display: block; }
+#touch-move {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 42%;
+    z-index: 30; touch-action: none;
+}
+#touch-move span {
+    position: absolute; left: 22px; bottom: 28px;
+    font-size: 11px; letter-spacing: 2px; color: rgba(180, 255, 200, 0.45);
+    pointer-events: none;
+}
+#btn-fire, #btn-special {
+    position: absolute; right: 22px; z-index: 40;
+    width: 84px; height: 84px; border-radius: 50%;
+    font-family: 'Press Start 2P', monospace; font-size: 11px;
+    letter-spacing: 1px; color: #04140a;
+    border: 3px solid #b6ffcf; background: #39f57a;
+    box-shadow: 0 0 18px rgba(57, 245, 122, 0.55);
+    touch-action: none;
+}
+#btn-fire { bottom: 22px; }
+#btn-special {
+    bottom: 118px; font-size: 8px; color: #041018;
+    border-color: #9aefff; background: #3ad4f5;
+    box-shadow: 0 0 18px rgba(58, 212, 245, 0.45);
+}
+#btn-fire.held, #btn-special.held { transform: scale(0.94); filter: brightness(1.25); }
+
+body.touch-ui #ability-hud { width: 200px; bottom: 18px; }
+body.touch-ui #progress-hud { width: 36%; }
+
+/* Tall phone: stop and ask them to turn it sideways. */
+#rotate-overlay {
+    display: none; position: fixed; inset: 0; z-index: 80;
+    background: rgba(4, 6, 16, 0.94);
+    flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 24px;
+}
+body.need-rotate #rotate-overlay { display: flex; }
+body.need-rotate #touch-controls { display: none; }
+.rotate-icon { font-size: 64px; color: #7dffb2; margin: 0 0 12px; }
+.rotate-title { font-size: 16px; color: #d8ffe8; margin: 0 0 10px; }
+.rotate-sub { font-size: 11px; color: #8fbfa4; margin: 0; }
+
 /* Boss HUD — full width banner across the top during boss battles */
 #boss-hud {
     display: none;

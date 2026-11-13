@@ -17,6 +17,19 @@ import { STORY, randomQuip } from './story.js';
 
 const $ = id => document.getElementById(id);
 
+const THEME_CLASSES = ['theme-neon', 'theme-magenta', 'theme-classic'];
+
+/**
+ * Change the color theme without erasing other body classes.
+ * Why: touch-ui and need-rotate live on the same element. Assigning
+ * className would throw those away, like repainting a door and
+ * scraping off the "push" sign with it.
+ */
+function applyTheme(theme) {
+    for (const name of THEME_CLASSES) document.body.classList.remove(name);
+    document.body.classList.add(theme || 'theme-neon');
+}
+
 let tallyTimers = [];
 let introTimer = null;
 let lastGrade = 'C'; // grade of the most recent tally, consumed on CONTINUE
@@ -44,13 +57,13 @@ export const UI = {
 
         const updatePreview = () => {
             const ship = getShip(selectedShipIdx);
-            // Hangar shows the rear plate. This version does not offer a
-            // standard-definition swap — HD is the only set that loads.
-            const key = `${ship.sprite}-back`;
+            // Hangar keeps the original overhead select art. The tail-on
+            // sprite is only drawn once a run starts.
+            const key = `${ship.sprite}HD`;
             const img = Sprites.get(key);
             $('ship-preview').src = (img instanceof HTMLCanvasElement)
                 ? img.toDataURL()
-                : `/assets/sprites/${ship.sprite}-back.webp`;
+                : `/assets/sprites/${ship.sprite}HD.webp`;
             $('ship-name').innerText = ship.name;
             $('ship-name').style.color = ship.stats.color;
             $('ship-role').innerText = ship.role;
@@ -136,11 +149,13 @@ export const UI = {
 
         document.querySelectorAll('.theme-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                document.body.className = e.target.dataset.theme;
+                // Swap only the theme. className = would wipe touch-ui
+                // and the rotate-your-phone flag off the same element.
+                applyTheme(e.target.dataset.theme);
                 store.set('theme', e.target.dataset.theme);
             });
         });
-        document.body.className = store.get('theme', 'theme-neon');
+        applyTheme(store.get('theme', 'theme-neon'));
     },
 
     resumeFromPause() {

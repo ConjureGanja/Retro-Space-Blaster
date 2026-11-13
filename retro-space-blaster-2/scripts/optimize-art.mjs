@@ -83,9 +83,27 @@ async function main() {
   const stamp = await fs.readFile(STAMP_FILE, 'utf8').catch(() => '');
   const forceAll = stamp.trim() !== String(PIPELINE_VERSION) || process.argv.includes('--force');
 
-  const sources = (await fs.readdir(SRC_DIR)).filter((f) =>
-    SOURCE_EXT.has(path.extname(f).toLowerCase())
-  );
+  // Top-level masters, plus one folder down (art/sprites/rear/*.png).
+  // A nested file keeps its folder in the output name's path so a rear
+  // playership1.png cannot overwrite the hangar's playership1.webp.
+  // Analogy: two drawers in the same cabinet — the new photos don't
+  // land on top of the old contact sheet.
+  async function listSources(dir, prefix = '') {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    const files = [];
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        files.push(...(await listSources(path.join(dir, entry.name), rel)));
+      } else if (SOURCE_EXT.has(path.extname(entry.name).toLowerCase())) {
+        files.push(rel);
+      }
+    }
+    return files;
+  }
+
+  const sources = await listSources(SRC_DIR);
 
   let rendered = 0;
   let inBytes = 0;
@@ -93,7 +111,8 @@ async function main() {
 
   await runPool(sources, 4, async (file) => {
     const src = path.join(SRC_DIR, file);
-    const out = path.join(OUT_DIR, `${path.parse(file).name}.webp`);
+    const out = path.join(OUT_DIR, `${file.replace(/\.[^.]+$/, '')}.webp`);
+    await fs.mkdir(path.dirname(out), { recursive: true });
     const srcStat = await fs.stat(src);
     inBytes += srcStat.size;
 
