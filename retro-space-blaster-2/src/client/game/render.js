@@ -60,6 +60,11 @@ export function draw() {
     ctx.fillRect(0, 0, canvas ? canvas.width : frame.cssW * frame.dpr, canvas ? canvas.height : frame.cssH * frame.dpr);
 
     enterView();
+    ctx.save();
+    // Keep the scene inside its frame, like a mat around a picture.
+    ctx.beginPath();
+    ctx.rect(0, 0, VIEW_W, VIEW_H);
+    ctx.clip();
     drawSky();
     drawGround();
     drawStars();
@@ -80,7 +85,6 @@ export function draw() {
         ctx.fillRect(0, 0, VIEW_W, VIEW_H);
     }
 
-    ctx.save();
     ctx.translate(shake.x, shake.y);
 
     drawXPOrbs();
