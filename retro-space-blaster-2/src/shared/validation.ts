@@ -26,6 +26,7 @@ export const SAVE_KEYS = [
   'theme',
   'introSeen',
   'hiscore',
+  'reduced',
 ] as const;
 
 /** Max serialized save size. The real save is ~1 KB; 16 KB leaves headroom. */
@@ -65,6 +66,7 @@ function validField(key: (typeof SAVE_KEYS)[number], value: unknown): boolean {
       return DIFFICULTY_IDS.some((id) => id === value);
     case 'hd':
     case 'introSeen':
+    case 'reduced':
       return typeof value === 'boolean';
     case 'volMusic':
     case 'volSfx':

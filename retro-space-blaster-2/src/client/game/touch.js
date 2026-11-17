@@ -12,7 +12,7 @@
 
 import { STATE, Runtime } from './config.js';
 import { Sound } from './audio.js';
-import { input, setAim } from './input.js';
+import { setStick, setTouchFire, setTouchSpecial } from './rail/controls.ts';
 
 let heldForPortrait = false;
 
@@ -57,13 +57,14 @@ function applyOrientation() {
 }
 
 /** Hold a button the same way a mouse button is held. */
-function holdButton(el, flag) {
+function holdButton(el, which) {
+    const set = which === 'fire' ? setTouchFire : setTouchSpecial;
     let down = false;
     const press = (e) => {
         e.preventDefault();
         e.stopPropagation();
         down = true;
-        input[flag] = true;
+        set(true);
         el.classList.add('held');
         if (e.pointerId !== undefined) el.setPointerCapture(e.pointerId);
     };
@@ -71,7 +72,7 @@ function holdButton(el, flag) {
         if (!down) return;
         if (e) e.preventDefault();
         down = false;
-        input[flag] = false;
+        set(false);
         el.classList.remove('held');
     };
     el.addEventListener('pointerdown', press);
@@ -79,17 +80,32 @@ function holdButton(el, flag) {
     el.addEventListener('pointercancel', release);
 }
 
-function bindMovePad(canvas) {
+/**
+ * Left thumb is a stick, not a cursor. The pad only covers the left of the
+ * glass — mapping it to "where the finger is" would trap the ship there.
+ */
+function bindMovePad() {
     const pad = document.getElementById('touch-move');
-    const aim = (touch) => setAim(canvas, touch.clientX, touch.clientY);
+    let origin = null;
+    const sens = 72;
     pad.addEventListener('touchstart', (e) => {
         e.preventDefault();
-        aim(e.changedTouches[0]);
+        const touch = e.changedTouches[0];
+        origin = { x: touch.clientX, y: touch.clientY };
+        setStick(0, 0);
     }, { passive: false });
     pad.addEventListener('touchmove', (e) => {
         e.preventDefault();
-        aim(e.touches[0]);
+        if (!origin) return;
+        const touch = e.touches[0];
+        setStick((touch.clientX - origin.x) / sens, (touch.clientY - origin.y) / sens);
     }, { passive: false });
+    const end = () => {
+        origin = null;
+        setStick(0, 0);
+    };
+    pad.addEventListener('touchend', end);
+    pad.addEventListener('touchcancel', end);
 }
 
 /**
@@ -99,9 +115,9 @@ function bindMovePad(canvas) {
 export function initTouch(canvas) {
     if (!wantsTouch()) return;
     document.body.classList.add('touch-ui');
-    holdButton(document.getElementById('btn-fire'), 'clickLeft');
-    holdButton(document.getElementById('btn-special'), 'clickRight');
-    bindMovePad(canvas);
+    holdButton(document.getElementById('btn-fire'), 'fire');
+    holdButton(document.getElementById('btn-special'), 'special');
+    bindMovePad();
     window.addEventListener('resize', applyOrientation);
     window.addEventListener('orientationchange', applyOrientation);
     // A tap is the gesture some browsers require before they will lock.

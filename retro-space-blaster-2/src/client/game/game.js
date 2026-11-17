@@ -1,4 +1,8 @@
 /**
+ * Retired side-scroller. The sequel steps game/rail/sim.ts instead, because a
+ * chase camera bolted onto a right-scrolling world let enemies end up behind
+ * the lens and keep shooting. This file is the old route map in the glovebox.
+ *
  * Core game model + controller: state, spawning, the per-frame update, and
  * collision resolution. Rendering lives in render.js; cosmetic FX in fx.js.
  *

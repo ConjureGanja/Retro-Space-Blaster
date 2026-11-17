@@ -1,6 +1,6 @@
 {
   "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
-  "name": "retro-space-blaster-2",
+  "name": "space-blaster-2",
   "marketingAssets": {
     "icon": "marketing/icon.png"
   },
@@ -34,8 +34,8 @@
   "menu": {
     "items": [
       {
-        "label": "Post Retro Space Blaster 2",
-        "description": "Create a new playable Retro Space Blaster 2 post",
+        "label": "Post Space Blaster 2",
+        "description": "Create a new playable Space Blaster 2 post",
         "location": "subreddit",
         "forUserType": "moderator",
         "endpoint": "/internal/menu/post-create"

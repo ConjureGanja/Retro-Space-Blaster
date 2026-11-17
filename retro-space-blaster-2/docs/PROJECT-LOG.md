@@ -9,11 +9,11 @@ Record _where_ a secret lives, never the secret itself.
 | Thing                  | Value / location                                                                      |
 | ---------------------- | ------------------------------------------------------------------------------------- |
 | GitHub repo            | `ConjureGanja/Retro-Space-Blaster` (public)                                           |
-| Devvit app name / slug | `retro-space-blaster` (from `devvit.json` → `name`)                                   |
+| Devvit app name / slug | `space-blaster-2` (from this folder's `devvit.json` → `name`)                         |
 | Reddit developer acct  | The Reddit account you ran `devvit login` with                                        |
 | Devvit login token     | Stored by the CLI in your user folder (`%USERPROFILE%\.devvit`) — **never commit it** |
-| Test subreddit         | _fill in after first playtest_ (the CLI prints the `<app-name>_dev` sub it creates)   |
-| App Directory page     | `https://developers.reddit.com/apps/retro-space-blaster`                              |
+| Test subreddit         | `r/space_blaster_2_dev` (private install of this app)                                 |
+| App Directory page     | `https://developers.reddit.com/apps/space-blaster-2`                                  |
 
 ## Hosting & data
 
@@ -31,14 +31,14 @@ Record _where_ a secret lives, never the secret itself.
 
 ## Toolchain (as of 2026-10-28)
 
-| Tool       | Version | Notes                                       |
-| ---------- | ------- | ------------------------------------------- |
-| Node.js    | 24 LTS  | `.nvmrc`; minimum 22.13 (ESLint 10)         |
-| Devvit     | 0.15.1  | `devvit`, `@devvit/web`, `@devvit/start`    |
-| Vite       | 8.3.5   | Build via `@devvit/start/vite` plugin       |
-| TypeScript | 6.0.3   | Server/shared/splash only; game is plain JS |
-| Hono       | 4.13.14 | Server router                               |
-| sharp      | 0.35.5  | Art pipeline (SVG/PNG → WebP)               |
+| Tool       | Version | Notes                                    |
+| ---------- | ------- | ---------------------------------------- |
+| Node.js    | 24 LTS  | `.nvmrc`; minimum 22.13 (ESLint 10)      |
+| Devvit     | 0.15.1  | `devvit`, `@devvit/web`, `@devvit/start` |
+| Vite       | 8.3.5   | Build via `@devvit/start/vite` plugin    |
+| TypeScript | 6.0.3   | Server, shared, splash, and the rail sim |
+| Hono       | 4.13.14 | Server router                            |
+| sharp      | 0.35.5  | Art pipeline (SVG/PNG → WebP)            |
 
 ## Limits worth remembering (Devvit 0.15.1 CLI)
 
