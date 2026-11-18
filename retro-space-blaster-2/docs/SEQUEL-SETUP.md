@@ -79,7 +79,17 @@ Tail and both nozzles point at the bottom of the PNG (toward the camera). The no
 
 `npm run art` runs before `dev`, `local`, and `build`.
 
-Enemy stamps live in `art/sprites/foes/`. `scripts/paint-foes.mjs` redraws them. Each foe has `idle`, `wind`, and `hit`. Bosses use the route id (`nebula`, `belt`, `station`, `ice`, `hive`). After a repaint, run `npm run art`.
+Foe paintings live in `art/foe-masters/foe-<name>.jpg`. They are the same kind of pixel art as the rear ships: metal shading, panels, rim light, glowing nozzles. `node scripts/bake-foes.mjs` (or `node scripts/paint-foes.mjs`) cleans them to 256×256 with nearest-neighbor scaling and writes the frames into `art/sprites/foes/`. Then `npm run art`.
+
+Frames: `idle`, `flicker` (engine pulse), `wind`, `hit`, and `die-0` through `die-7`. Bosses also have `hurt` and `hurt2`. The breakup is cut from that ship's own painting: a splitter parts down the middle, a mine throws a ring, a tank's plates leave upward, a turret's barrel drops, a dish implodes then bursts. Hit circles are still `enemy.r`.
+
+## Swap music and sounds
+
+Menu music is `#menu-bgm` in `src/client/game.html`, file `public/assets/music/StartMenuMusic.mp3`. That is the original game's menu track. Leave it.
+
+Fight music is `#bgm`, file `public/assets/music/whispers.ogg`. The only unused song in the repo is `art/music-unused/Whispers of Tomorrow.mp3` (Alex, ambient, about 33 seconds). The ogg is that file at roughly 130 kbps. To use a different fight song, replace `whispers.ogg` or change the `src`. The two tracks crossfade. Pause and the boss sting duck the fight song. Audio starts on the first click or key, because the browser blocks autoplay.
+
+Sound effects are synthesized in `src/client/game/audio.js`. Add a name to `CUES` and call `Sound.play('that-name')`. The mixer keeps about eight voices so a busy wave does not clip. Music and SFX have separate sliders in settings (`volMusic`, `volSfx`).
 
 ## Controls
 
@@ -96,7 +106,7 @@ The roll is a sideways burst plus a full spin of the rear sprite. The middle of 
 
 The crosshair sits on the play plane at the blaster's x and y. Shots do not drift sideways, so that point is where they still are when they reach the target's depth. Spread cannons add a small box for each side barrel. It lags a little as paint, opens while you fire, and turns red with a lock ring when an enemy is already under the guns. Aim assist, off unless you turn it on, nudges the barrels a few units toward that enemy. The mark moves with the barrels. Settings: crosshair on or off, style (cross, chevron, dot), color, and aim assist.
 
-Foe masters are 128×128 in `art/sprites/foes/`, with a nearest-neighbor `@2x` twin. `node scripts/paint-foes.mjs` redraws them. Idle, wind-up, hit, and dead. Then `npm run art`. Hit circles are still `enemy.r`. The picture got bigger. The collision did not.
+The crosshair is a little larger than the first version so it reads on a phone. Reduced effects turns off the glow, the shockwave rings, and the white flash on a big kill. The red flash when you are hit stays, quieter.
 
 Landscape only on a phone. A tall phone gets ROTATE and a running fight pauses.
 

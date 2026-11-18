@@ -157,13 +157,18 @@ async function main() {
       withoutEnlargement: !isSvg,
       ...(pixelArt ? { kernel: 'nearest' } : {}),
     });
+    // Rear ships stay lossless. Foe frames are the same pixel language, but
+    // there are nearly two hundred of them, so a high-quality lossy WebP
+    // keeps the panels and still fits a Devvit upload.
     await resized
       .webp(
-        pixelArt
-          ? { lossless: true, effort: 5 }
-          : OPAQUE.has(file)
-            ? { quality: 80, effort: 5 }
-            : { quality: 88, alphaQuality: 100, effort: 5 }
+        file.startsWith('foes/')
+          ? { quality: 85, alphaQuality: 100, effort: 5 }
+          : pixelArt
+            ? { lossless: true, effort: 5 }
+            : OPAQUE.has(file)
+              ? { quality: 80, effort: 5 }
+              : { quality: 88, alphaQuality: 100, effort: 5 }
       )
       .toFile(out);
 

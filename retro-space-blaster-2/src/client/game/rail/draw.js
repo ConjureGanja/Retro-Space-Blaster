@@ -145,14 +145,18 @@ function drawSafeLane(ctx, frame, theme, w, h) {
   ctx.restore();
 }
 
-function foeKey(enemy) {
+function foeKey(enemy, frame) {
   const family = enemy.boss ? enemy.art : enemy.kind;
+  // Damage states are the same painting with cracks. The engines still glow.
   let frameName = 'idle';
-  if (enemy.flash > 0) frameName = 'hit';
+  if (enemy.boss && enemy.hp < enemy.maxHp * 0.34) frameName = 'hurt2';
+  else if (enemy.boss && enemy.hp < enemy.maxHp * 0.67) frameName = 'hurt';
+  else if (enemy.flash > 0) frameName = 'hit';
   else if (enemy.windup > 0 || enemy.mode === 'windup' || enemy.reflectT > 0 || enemy.blink > 8) {
     frameName = 'wind';
-  }
-  return `foe-${family}-${frameName}`;
+  } else if (Math.floor(frame / 8) % 2 === 1) frameName = 'flicker';
+  const key = `foe-${family}-${frameName}`;
+  return Sprites.isReady(key) ? key : `foe-${family}-idle`;
 }
 
 function drawEnemy(ctx, enemy, w, h, frame) {
@@ -162,7 +166,7 @@ function drawEnemy(ctx, enemy, w, h, frame) {
   ctx.save();
   ctx.translate(p.x, p.y);
   ctx.globalAlpha = (enemy.boss ? 1 : p.alpha) * (enemy.blink > 10 ? 0.35 : 1);
-  const key = foeKey(enemy);
+  const key = foeKey(enemy, frame);
   if (Sprites.isReady(key)) {
     ctx.imageSmoothingEnabled = false;
     const img = Sprites.get(key);
@@ -305,14 +309,14 @@ function drawCrosshair(ctx, run, w, h, frame, reduced) {
   const color = XCOLOR[prefs.color] || XCOLOR.cyan;
   const locked = !!(target && run.lock > 0.12);
   const hot = locked ? '#ff5d6c' : color;
-  const bloom = (run.muzzle > 0 ? 1.45 : 1) * (locked ? 0.85 : 1);
-  const gap = 7 * bloom;
-  const arm = 11 * bloom;
+  const bloom = (run.muzzle > 0 ? 1.55 : 1) * (locked ? 0.9 : 1);
+  const gap = 11 * bloom;
+  const arm = 18 * bloom;
   ctx.save();
   ctx.translate(crossSmooth.x, crossSmooth.y);
   ctx.strokeStyle = hot;
   ctx.fillStyle = hot;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = reduced ? 2 : 3;
   if (!reduced) {
     ctx.shadowColor = hot;
     ctx.shadowBlur = 10;
@@ -615,14 +619,35 @@ export function drawFrame(canvas, run, menuFrame, reduced) {
 
   for (const corpse of run.corpses || []) {
     const mark = project(corpse.x, corpse.y, corpse.z, w, h);
-    const key = `foe-${corpse.art}-dead`;
-    if (!Sprites.isReady(key)) continue;
-    const img = Sprites.get(key);
-    const size = Math.min(w * 0.14, 72) * (corpse.life / 12);
+    const span = corpse.max || 28;
+    const age = 1 - corpse.life / span;
+    const step = Math.min(7, Math.floor(age * 8));
+    const key = `foe-${corpse.art}-die-${step}`;
+    const radius = corpse.boss ? Math.min(w * 0.22, 150) : Math.min(w * 0.14, 96);
+    if (Sprites.isReady(key)) {
+      const img = Sprites.get(key);
+      ctx.save();
+      ctx.globalAlpha = Math.max(0.15, 1 - age * 0.35);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, mark.x - radius / 2, mark.y - radius / 2, radius, radius);
+      ctx.restore();
+    }
+    if (reduced) continue;
+    // The ring is the shockwave. A mine's ring is wider. A dish's is cyan.
+    const ringColor = corpse.kind === 'generator' ? '#7ef6ff' : corpse.boss ? '#ffe9a8' : '#ffb060';
     ctx.save();
-    ctx.globalAlpha = corpse.life / 14;
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, mark.x - size / 2, mark.y - size / 2, size, size);
+    ctx.strokeStyle = ringColor;
+    ctx.globalAlpha = 1 - age;
+    ctx.lineWidth = corpse.boss ? 3 : 2;
+    ctx.beginPath();
+    ctx.arc(
+      mark.x,
+      mark.y,
+      6 + age * (corpse.boss ? 78 : corpse.kind === 'mine' ? 52 : 34),
+      0,
+      Math.PI * 2
+    );
+    ctx.stroke();
     ctx.restore();
   }
   for (const ping of run.pings || []) {
@@ -667,6 +692,20 @@ export function drawFrame(canvas, run, menuFrame, reduced) {
     ctx.save();
     ctx.fillStyle = '#7af0ff';
     ctx.globalAlpha = 0.06;
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+  }
+  if (!reduced && run.boom > 0) {
+    ctx.save();
+    ctx.fillStyle = '#fff4d2';
+    ctx.globalAlpha = run.boom / 26;
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+  }
+  if (run.hurtT > 0) {
+    ctx.save();
+    ctx.fillStyle = '#ff2a3a';
+    ctx.globalAlpha = (run.hurtT / 16) * (reduced ? 0.12 : 0.32);
     ctx.fillRect(0, 0, w, h);
     ctx.restore();
   }

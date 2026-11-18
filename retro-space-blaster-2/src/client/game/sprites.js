@@ -97,15 +97,21 @@ const SPRITE_FILES = {
     upgLife:         '/assets/sprites/extralife-hullrepair.webp'
 };
 
-// Front-view foe stamps painted by scripts/paint-foes.mjs.
-// Three frames each: idle, the wind-up, and the flinch.
+// Painted foes. Masters live in art/foe-masters and are baked by
+// scripts/bake-foes.mjs into the same pixel size as the rear player ships.
+// Idle flickers its engines. Wind is the attack tell. Hit is the flinch.
+// die-0..7 is that ship's own breakup. Bosses also have two damage states.
 const FOE_NAMES = [
     'swarmer', 'strafer', 'turret', 'tank', 'kamikaze', 'miner',
     'splitter', 'elite', 'mine', 'generator',
     'nebula', 'belt', 'station', 'ice', 'hive',
 ];
+const FOE_BOSSES = new Set(['nebula', 'belt', 'station', 'ice', 'hive']);
 for (const name of FOE_NAMES) {
-    for (const frame of ['idle', 'wind', 'hit', 'dead']) {
+    const frames = ['idle', 'flicker', 'wind', 'hit'];
+    for (let i = 0; i < 8; i++) frames.push(`die-${i}`);
+    if (FOE_BOSSES.has(name)) frames.push('hurt', 'hurt2');
+    for (const frame of frames) {
         SPRITE_FILES[`foe-${name}-${frame}`] = `/assets/sprites/foes/${name}-${frame}.webp`;
     }
 }

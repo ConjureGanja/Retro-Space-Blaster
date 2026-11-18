@@ -135,15 +135,78 @@ body.reduced .vignette {
   font-size: 10px;
 }
 
-#sb2 .bars {
-  position: absolute;
-  top: 42px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(440px, 46vw);
+#sb2 .hud-mid {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  gap: 4px;
+  min-width: min(280px, 40vw);
+}
+
+#sb2 .route-line {
+  width: 100%;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid #245c40;
+}
+
+#sb2 .route-line > span,
+#sb2 .chip-bar > span,
+#sb2 .bar > span {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: #3dff9a;
+  box-shadow: 0 0 8px #3dff9a;
+}
+
+#sb2 .chips {
+  position: absolute;
+  left: 16px;
+  bottom: 18px;
+  display: flex;
+  gap: 10px;
+}
+
+#sb2 .chip {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 92px;
+}
+
+#sb2 .chip-name {
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-shadow: 0 0 8px #000;
+}
+
+#sb2 .chip-bar {
+  height: 6px;
+  border: 1px solid #245c40;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+#sb2 .boss-wrap {
+  display: none;
+  position: absolute;
+  top: 46px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(360px, 50vw);
+}
+
+#sb2 .combo {
+  position: absolute;
+  right: 18px;
+  bottom: 22px;
+  font-size: 18px;
+  color: #ffe27a;
+  text-shadow: 0 0 12px #ffb020;
+}
+
+#sb2 button.pill:active {
+  transform: translateY(1px) scale(0.98);
 }
 
 #sb2 .bar {
@@ -254,6 +317,18 @@ body.reduced .vignette {
   font-size: 42px;
   line-height: 1;
   text-shadow: 0 0 16px currentColor;
+  animation: sb2-pop 420ms ease-out;
+}
+
+@keyframes sb2-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
 }
 
 #sb2 .grade.A {

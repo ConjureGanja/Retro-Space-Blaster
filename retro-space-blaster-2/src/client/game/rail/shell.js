@@ -276,6 +276,7 @@ function onClear() {
   userPaused = false;
   Runtime.state = STATE.MENU;
   Sound.stopBGM();
+  Sound.startMenuBGM();
   Sound.play('fanfare');
   const camp = campaign();
   const grade = gradeFor(run.hits);
@@ -301,6 +302,7 @@ function onDead() {
   userPaused = false;
   Runtime.state = STATE.MENU;
   Sound.stopBGM();
+  Sound.startMenuBGM();
   Sound.play('fanfare_bad');
   rememberScore();
   show('over');
@@ -328,6 +330,7 @@ export function beginLevel(id, opts = {}) {
   demoSent = false;
   Runtime.state = STATE.PLAYING;
   Runtime.shipSpriteName = ship().sprite;
+  Sound.play('levelStart');
   Sound.startBGM();
   show('hud');
 }
@@ -373,6 +376,10 @@ function syncHud() {
     progress.style.width = `${ratio * 100}%`;
   }
   if (banner) banner.textContent = run.bannerT > 0 ? run.banner : '';
+  const combo = root.querySelector('.combo');
+  if (combo) {
+    combo.textContent = run.combo > 1 && run.comboT > 0 ? `x${run.combo}` : '';
+  }
   const rollFill = root.querySelector('.roll-fill');
   if (rollFill) {
     const ready =
@@ -409,6 +416,7 @@ function button(label, act) {
   const node = el('button', 'pill', label);
   node.type = 'button';
   node.dataset.act = act;
+  node.addEventListener('pointerenter', () => Sound.play('hover'));
   return node;
 }
 
@@ -539,26 +547,31 @@ function build() {
 
   const hud = el('div', 'hud');
   const top = el('div', 'hud-top');
-  top.append(
-    el('div', 'hud-score', 'SCORE  0'),
-    el('div', 'hud-lives', 'HULL  3'),
-    el('div', 'hud-sector', 'SECTOR')
-  );
-  const bars = el('div', 'bars');
-  const progLabel = el('div', 'bar-label', 'ROUTE');
-  const prog = el('div', 'bar');
-  prog.append(el('span', 'progress-fill'));
-  const specLabel = el('div', 'bar-label', 'SPECIAL');
-  const spec = el('div', 'bar');
-  spec.append(el('span', 'special-fill'));
-  const rollLabel = el('div', 'bar-label', 'ROLL');
-  const rollBar = el('div', 'bar');
-  rollBar.append(el('span', 'roll-fill'));
+  const mid = el('div', 'hud-mid');
+  mid.append(el('div', 'hud-lives', 'HULL  3'));
+  const route = el('div', 'route-line');
+  route.append(el('span', 'progress-fill'));
+  mid.append(route);
+  top.append(el('div', 'hud-score', 'SCORE  0'), mid, el('div', 'hud-sector', 'SECTOR'));
   const bossWrap = el('div', 'boss-wrap');
   bossWrap.append(el('div', 'bar-label boss-name', 'BOSS'), el('div', 'bar boss'));
   bossWrap.querySelector('.bar').append(el('span', 'boss-fill'));
-  bars.append(progLabel, prog, specLabel, spec, rollLabel, rollBar, bossWrap);
-  hud.append(top, bars, el('div', 'banner', ''), el('div', 'coach', ''));
+  const chips = el('div', 'chips');
+  const spec = el('div', 'chip');
+  spec.append(el('span', 'chip-name', 'SPECIAL'), el('span', 'chip-bar'));
+  spec.querySelector('.chip-bar').append(el('span', 'special-fill'));
+  const rollChip = el('div', 'chip');
+  rollChip.append(el('span', 'chip-name', 'ROLL'), el('span', 'chip-bar'));
+  rollChip.querySelector('.chip-bar').append(el('span', 'roll-fill'));
+  chips.append(spec, rollChip);
+  hud.append(
+    top,
+    bossWrap,
+    chips,
+    el('div', 'combo', ''),
+    el('div', 'banner', ''),
+    el('div', 'coach', '')
+  );
 
   const pause = el('section', 'screen');
   pause.dataset.screen = 'pause';
@@ -606,7 +619,17 @@ function build() {
     'hive',
   ];
   for (const name of stamps) {
-    for (const frame of ['idle', 'wind', 'hit', 'dead']) {
+    const frames = ['idle', 'wind', 'hit', 'die-2', 'die-6'];
+    if (
+      name === 'nebula' ||
+      name === 'belt' ||
+      name === 'station' ||
+      name === 'ice' ||
+      name === 'hive'
+    ) {
+      frames.splice(3, 0, 'hurt');
+    }
+    for (const frame of frames) {
       const fig = document.createElement('figure');
       const img = document.createElement('img');
       img.src = `/assets/sprites/foes/${name}-${frame}.webp`;
@@ -617,7 +640,24 @@ function build() {
       grid.append(fig);
     }
   }
-  bestiary.append(el('h1', '', 'STAMPS'), grid, button('HANGAR', 'hangar'));
+  const pilots = el('div', 'bestiary');
+  for (let n = 1; n <= 5; n++) {
+    const fig = document.createElement('figure');
+    const img = document.createElement('img');
+    img.src = `/assets/sprites/rear/playership${n}.webp`;
+    img.alt = `Pilot ${n}`;
+    img.width = 96;
+    img.height = 96;
+    fig.append(img, el('figcaption', '', `pilot ${n}`));
+    pilots.append(fig);
+  }
+  bestiary.append(
+    el('h1', '', 'HANGAR'),
+    pilots,
+    el('h2', '', 'FOES'),
+    grid,
+    button('HANGAR', 'hangar')
+  );
 
   root.append(title, hangar, map, shop, settings, board, hud, pause, results, over, bestiary);
   document.getElementById('game-container').appendChild(root);
@@ -627,6 +667,8 @@ function build() {
     if (!act) return;
     Sound.init();
     const kind = act.dataset.act;
+    const backing = kind === 'hangar' || kind === 'quit' || kind === 'back';
+    Sound.play(backing ? 'back' : 'click');
     if (kind === 'prev-ship' || kind === 'next-ship') {
       const dir = kind === 'next-ship' ? 1 : -1;
       const ids = SHIPS.map((entry) => entry.idx);

@@ -168,7 +168,23 @@ export type Run = {
   lock: number;
   aimAssist: boolean;
   pings: { x: number; y: number; z: number; kind: 'hit' | 'kill'; life: number }[];
-  corpses: { art: string; x: number; y: number; z: number; life: number }[];
+  corpses: {
+    art: string;
+    kind: string;
+    boss: boolean;
+    x: number;
+    y: number;
+    z: number;
+    life: number;
+    max: number;
+  }[];
+  /** White punch on a big kill. Counts down in frames. */
+  boom: number;
+  /** Red vignette after the player is tagged. */
+  hurtT: number;
+  combo: number;
+  comboT: number;
+  lockSung: boolean;
   energy: number;
   slow: number;
   shield: number;
@@ -312,10 +328,15 @@ function hurt(state: Run): void {
   if (rollInvuln(state.player)) return;
   state.player.lives -= 1;
   state.player.iframe = TUNE.IFRAME;
+  state.hurtT = 16;
   state.hits += 1;
   state.shake = Math.max(state.shake, 7);
-  state.sfx('explode');
-  if (state.player.lives <= 0) state.mode = 'dead';
+  state.sfx('playerHurt');
+  if (state.player.lives === 1) state.sfx('lowHull');
+  if (state.player.lives <= 0) {
+    state.mode = 'dead';
+    state.sfx('gameover');
+  }
 }
 
 function perfectDodge(state: Run): void {
@@ -336,10 +357,36 @@ function killEnemy(state: Run, enemy: Enemy): void {
   if (!enemy.alive) return;
   enemy.alive = false;
   enemy.pending = [];
-  state.corpses.push({ art: enemy.art, x: enemy.x, y: enemy.y, z: enemy.z, life: 12 });
+  const dying = enemy.boss ? 48 : 28;
+  state.corpses.push({
+    art: enemy.art,
+    kind: enemy.kind,
+    boss: enemy.boss,
+    x: enemy.x,
+    y: enemy.y,
+    z: enemy.z,
+    life: dying,
+    max: dying,
+  });
   state.pings.push({ x: enemy.x, y: enemy.y, z: enemy.z, kind: 'kill', life: 16 });
+  state.boom = Math.max(
+    state.boom,
+    enemy.boss ? 10 : enemy.kind === 'tank' || enemy.kind === 'elite' ? 5 : 3
+  );
+  if (state.comboT > 0) state.combo += 1;
+  else state.combo = 1;
+  state.comboT = 70;
+  if (state.combo > 1) {
+    pushFloater(state, enemy.x, enemy.y - 8, enemy.z, `x${state.combo}`);
+  }
   award(state, enemy.boss ? 'boss' : 'kills', enemy.score);
-  state.sfx('explode');
+  state.sfx(
+    enemy.boss
+      ? 'bossExplode'
+      : enemy.kind === 'mine' || enemy.kind === 'kamikaze'
+        ? 'explodeBig'
+        : 'explode'
+  );
   if (enemy.splits) {
     // Children pop farther from the camera than the parent, so a death on
     // the cull line can't drop a new fighter into the lens.
@@ -360,10 +407,12 @@ function damageEnemy(state: Run, enemy: Enemy, amount: number, shotX = enemy.x):
   // A generator's bubble pops before the hull. The dish itself has no bubble.
   if (enemy.bubble > 0) {
     enemy.bubble -= amount;
+    state.sfx('shieldHit');
     if (enemy.bubble <= 0) {
       // Negative means "popped". A living dish does not repaint it.
       enemy.bubble = -1;
       pushFloater(state, enemy.x, enemy.y, enemy.z, 'POP');
+      state.sfx('shieldPop');
     }
     return;
   }
@@ -372,6 +421,7 @@ function damageEnemy(state: Run, enemy: Enemy, amount: number, shotX = enemy.x):
   const flanking = enemy.kind === 'tank' && Math.abs(shotX - enemy.x) > 26;
   if (enemy.shield > 0 && !flanking) {
     enemy.shield -= amount;
+    state.sfx('shieldHit');
     pushFloater(state, enemy.x, enemy.y, enemy.z, 'SHIELD');
     if (enemy.shield > 0) return;
     amount = -enemy.shield;
@@ -381,6 +431,7 @@ function damageEnemy(state: Run, enemy: Enemy, amount: number, shotX = enemy.x):
   enemy.hp -= amount;
   pushFloater(state, enemy.x, enemy.y, enemy.z, String(Math.max(1, Math.round(amount))));
   state.pings.push({ x: enemy.x, y: enemy.y, z: enemy.z, kind: 'hit', life: 8 });
+  if (enemy.hp > 0) state.sfx('hit');
   if (enemy.boss && state.hitStop === 0) {
     // One frame of hold on a boss hit. Chaining it on every bolt would turn
     // the fight into slow motion, which is the chrono field's job.
@@ -559,7 +610,7 @@ function moveEnemy(state: Run, enemy: Enemy, slow: number): void {
             friendly: false,
             grazed: false,
           });
-          state.sfx('enemyShoot');
+          state.sfx('reflect');
         }
       }
     } else if (enemy.blinkCd > 0) {
@@ -742,12 +793,19 @@ function refreshLock(state: Run): void {
   if (!target) {
     state.lockId = 0;
     state.lock = Math.max(0, state.lock - 0.04);
+    if (state.lock <= 0) state.lockSung = false;
     return;
   }
-  if (target.id === state.lockId) state.lock = Math.min(1, state.lock + 0.025);
-  else {
+  if (target.id === state.lockId) {
+    state.lock = Math.min(1, state.lock + 0.025);
+    if (state.lock >= 1 && !state.lockSung) {
+      state.lockSung = true;
+      state.sfx('lock');
+    }
+  } else {
     state.lockId = target.id;
     state.lock = 0.08;
+    state.lockSung = false;
   }
 }
 
@@ -777,7 +835,11 @@ function playerFire(state: Run, input: Input): void {
     });
   }
   state.muzzle = 5;
-  state.sfx('shoot');
+  // Each ship has its own barrel note so a stream of shots doesn't become one buzz.
+  const barrel = ['shoot', 'shootTalon', 'shootWraith', 'shootAegis', 'shootVulcan'][
+    state.ship.idx - 1
+  ];
+  state.sfx(barrel || 'shoot');
 }
 
 function paintBubbles(state: Run): void {
@@ -809,6 +871,7 @@ function collide(state: Run): void {
       if (enemy.reflectT > 0 && enemy.kind === 'elite' && !enemy.boss) {
         shot.z = 9999;
         enemy.flash = 4;
+        state.sfx('reflect');
         break;
       }
       damageEnemy(state, enemy, shot.damage, shot.x);
@@ -999,6 +1062,11 @@ export function createRun(opts: RunOpts = {}): Run {
     aimAssist: false,
     pings: [],
     corpses: [],
+    boom: 0,
+    hurtT: 0,
+    combo: 0,
+    comboT: 0,
+    lockSung: false,
     energy: ship.ability.mode === 'drain' ? ship.ability.max : 0,
     slow: 1,
     shield: 0,
@@ -1058,6 +1126,10 @@ export function step(state: Run, input: Input): void {
   state.corpses = state.corpses.filter((corpse) => corpse.life > 0);
   if (state.bannerT > 0) state.bannerT -= 1;
   if (state.muzzle > 0) state.muzzle -= 1;
+  if (state.boom > 0) state.boom -= 1;
+  if (state.hurtT > 0) state.hurtT -= 1;
+  if (state.comboT > 0) state.comboT -= 1;
+  else state.combo = 0;
   if (state.buff.rapid > 0) state.buff.rapid -= 1;
   if (state.buff.spread > 0) state.buff.spread -= 1;
 
