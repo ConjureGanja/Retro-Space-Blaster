@@ -1,0 +1,14 @@
+<!-- BOSS SHIP 2 - Mothership (even bigger, saucer style) -->
+<svg width="220" height="160" viewBox="0 0 220 160" xmlns="http://www.w3.org/2000/svg" id="boss-mothership">
+  <!-- Huge saucer body -->
+  <ellipse cx="110" cy="95" rx="95" ry="35" fill="#440077" stroke="#cc44ff" stroke-width="18"/>
+  <!-- Upper dome -->
+  <ellipse cx="110" cy="70" rx="45" ry="25" fill="#220033" stroke="#ff88ff" stroke-width="10"/>
+  <!-- Windows / lights -->
+  <circle cx="65" cy="85" r="9" fill="#00ffff"/>
+  <circle cx="90" cy="75" r="9" fill="#00ffff"/>
+  <circle cx="130" cy="75" r="9" fill="#00ffff"/>
+  <circle cx="155" cy="85" r="9" fill="#00ffff"/>
+  <!-- Central weapon -->
+  <rect x="102" y="45" width="16" height="35" fill="#ff2222" rx="4"/>
+</svg>

@@ -1,0 +1,429 @@
+/* Rail-shooter menus. The old side-scroller screens stay in the HTML
+   but this layer covers them. Phone buttons live outside #sb2 so their
+   z-index still wins on the right thumb. */
+
+body.sb2 .menu-screen,
+body.sb2 #ui-layer,
+body.sb2 #boss-hud,
+body.sb2 #ability-hud,
+body.sb2 #progress-hud,
+body.sb2 #xp-bar-container {
+  display: none !important;
+}
+
+body.reduced .scanlines,
+body.reduced .vignette {
+  display: none !important;
+}
+
+#sb2 {
+  position: absolute;
+  inset: 0;
+  z-index: 24;
+  pointer-events: none;
+  font-family: 'Press Start 2P', monospace;
+}
+
+#sb2 .screen {
+  pointer-events: auto;
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 28px 18px 18px;
+  overflow: auto;
+  background: linear-gradient(180deg, rgba(4, 6, 16, 0.2), rgba(4, 6, 16, 0.78));
+  animation: sb2-in 220ms ease-out;
+}
+
+#sb2 .screen.on {
+  display: flex;
+}
+
+#sb2 h1,
+#sb2 h2 {
+  margin: 0;
+  text-align: center;
+  letter-spacing: 1px;
+  text-shadow: 0 0 12px currentColor;
+}
+
+#sb2 h1 {
+  font-size: clamp(14px, 2.4vw, 22px);
+  line-height: 1.6;
+}
+
+#sb2 h2 {
+  font-size: clamp(11px, 1.6vw, 14px);
+}
+
+#sb2 p,
+#sb2 li,
+#sb2 label,
+#sb2 button,
+#sb2 .meta {
+  font-size: 10px;
+  line-height: 1.7;
+}
+
+#sb2 .dim {
+  color: #b7c4c0;
+  text-align: center;
+  max-width: 640px;
+}
+
+#sb2 button.pill {
+  font-family: inherit;
+  font-size: 10px;
+  color: #d9ffe8;
+  background: rgba(6, 18, 14, 0.82);
+  border: 2px solid #3dff9a;
+  padding: 12px 16px;
+  cursor: pointer;
+  text-shadow: 0 0 8px #1aff80;
+  box-shadow: 0 0 16px rgba(61, 255, 154, 0.25);
+}
+
+#sb2 button.pill:hover,
+#sb2 button.pill:focus-visible {
+  background: #143222;
+  outline: none;
+}
+
+#sb2 button.pill:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+#sb2 .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+}
+
+#sb2 .blink {
+  animation: sb2-blink 1.1s steps(2) infinite;
+}
+
+#sb2 .hud {
+  pointer-events: none;
+  display: none;
+  position: absolute;
+  inset: 0;
+}
+
+#sb2 .hud.on {
+  display: block;
+}
+
+#sb2 .hud-top {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  text-shadow:
+    0 0 8px #000,
+    2px 2px 0 #000;
+  font-size: 10px;
+}
+
+#sb2 .hud-mid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: min(280px, 40vw);
+}
+
+#sb2 .route-line {
+  width: 100%;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid #245c40;
+}
+
+#sb2 .route-line > span,
+#sb2 .chip-bar > span,
+#sb2 .bar > span {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: #3dff9a;
+  box-shadow: 0 0 8px #3dff9a;
+}
+
+#sb2 .chips {
+  position: absolute;
+  left: 16px;
+  bottom: 18px;
+  display: flex;
+  gap: 10px;
+}
+
+#sb2 .chip {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 92px;
+}
+
+#sb2 .chip-name {
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-shadow: 0 0 8px #000;
+}
+
+#sb2 .chip-bar {
+  height: 6px;
+  border: 1px solid #245c40;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+#sb2 .boss-wrap {
+  display: none;
+  position: absolute;
+  top: 46px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(360px, 50vw);
+}
+
+#sb2 .combo {
+  position: absolute;
+  right: 18px;
+  bottom: 22px;
+  font-size: 18px;
+  color: #ffe27a;
+  text-shadow: 0 0 12px #ffb020;
+}
+
+#sb2 button.pill:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+#sb2 .bar {
+  height: 8px;
+  border: 1px solid #245c40;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+#sb2 .bar > span {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: #3dff9a;
+  box-shadow: 0 0 8px #3dff9a;
+}
+
+#sb2 .bar.boss > span {
+  background: #ff5d6c;
+  box-shadow: 0 0 8px #ff5d6c;
+}
+
+#sb2 .bar-label {
+  font-size: 8px;
+  letter-spacing: 1px;
+  margin-bottom: 2px;
+}
+
+#sb2 .banner {
+  position: absolute;
+  top: 18%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: #ffe27a;
+  font-size: 14px;
+  text-shadow: 0 0 12px #ffb020;
+}
+
+#sb2 .card {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  background: rgba(4, 10, 16, 0.78);
+  border: 1px solid rgba(180, 255, 210, 0.35);
+  padding: 12px;
+  max-width: 760px;
+}
+
+#sb2 .card img {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+#sb2 .rear {
+  width: min(180px, 28vw);
+  height: auto;
+}
+
+#sb2 .hd {
+  width: auto;
+  height: 88px;
+}
+
+#sb2 .nodes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(520px, 92vw);
+}
+
+#sb2 .node {
+  text-align: left;
+  width: 100%;
+}
+
+#sb2 .node.locked {
+  opacity: 0.45;
+}
+
+#sb2 .node.picked {
+  box-shadow:
+    0 0 0 2px #ffe27a,
+    0 0 16px rgba(255, 226, 122, 0.45);
+}
+
+#sb2 .shop-item,
+#sb2 .board-row {
+  width: min(560px, 92vw);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  border-bottom: 1px solid rgba(180, 255, 210, 0.2);
+  padding: 8px 0;
+}
+
+#sb2 .tally {
+  width: min(460px, 90vw);
+}
+
+#sb2 .tally div {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+#sb2 .grade {
+  font-size: 42px;
+  line-height: 1;
+  text-shadow: 0 0 16px currentColor;
+  animation: sb2-pop 420ms ease-out;
+}
+
+@keyframes sb2-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+#sb2 .grade.A {
+  color: #ffe27a;
+}
+#sb2 .grade.B {
+  color: #9dffc2;
+}
+#sb2 .grade.C {
+  color: #9ad4ff;
+}
+#sb2 .grade.D {
+  color: #ffb089;
+}
+#sb2 .grade.F {
+  color: #ff5d6c;
+}
+
+#sb2 input[type='range'] {
+  width: min(280px, 70vw);
+}
+
+#sb2 .settings {
+  width: min(520px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+@keyframes sb2-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sb2-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (max-height: 420px) {
+  #sb2 .screen {
+    padding-top: 10px;
+    gap: 6px;
+  }
+  #sb2 .card {
+    padding: 6px;
+  }
+  #sb2 .rear {
+    width: 120px;
+  }
+  #sb2 h1 {
+    font-size: 13px;
+  }
+}
+
+#sb2 .coach {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 16%;
+  text-align: center;
+  color: #fff6c2;
+  font-size: 11px;
+  text-shadow: 0 0 10px #000;
+}
+
+#sb2 .bestiary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  max-width: 980px;
+}
+
+#sb2 .bestiary figure {
+  margin: 0;
+  width: 110px;
+  text-align: center;
+}
+
+#sb2 .bestiary img {
+  width: 96px;
+  height: 96px;
+  image-rendering: pixelated;
+  background: #0c1424;
+}
+
+#sb2 .bestiary figcaption {
+  font-size: 7px;
+  color: #b7c4c0;
+}

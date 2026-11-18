@@ -1,0 +1,8 @@
+<!-- POWER-UP: SHIELD -->
+<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" id="powerup-shield">
+  <circle cx="25" cy="25" r="22" fill="#112244" stroke="#00ddff" stroke-width="6"/>
+  <!-- Shield emblem -->
+  <path d="M25,12 Q18,18 18,27 Q18,35 25,40 Q32,35 32,27 Q32,18 25,12"
+        fill="#00aaff" stroke="#ffffff" stroke-width="3"/>
+  <circle cx="25" cy="25" r="7" fill="#112244"/>
+</svg>

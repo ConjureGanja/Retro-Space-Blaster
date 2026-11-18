@@ -1,0 +1,47 @@
+{
+  "private": true,
+  "name": "space-blaster-2",
+  "version": "0.1.0",
+  "description": "Space Blaster 2 — a behind-the-ship rail shooter. Five new routes, new enemies, and a camera that never lets threats shoot from behind.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": "^22.13.0 || >=24"
+  },
+  "scripts": {
+    "art": "node scripts/bake-foes.mjs && node scripts/optimize-art.mjs",
+    "build": "npm run art && vite build",
+    "check": "npm run test:types && npm run lint && npm run format:check && npm run test:unit",
+    "deploy": "npm run check && npm run art && devvit upload",
+    "dev": "npm run art && devvit playtest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "launch": "npm run check && npm run art && devvit publish",
+    "launch:public": "npm run check && npm run art && devvit publish --public",
+    "lint": "eslint .",
+    "local": "npm run art && vite --config vite.local.config.ts",
+    "login": "devvit login",
+    "logs": "devvit logs",
+    "test:types": "tsc --build",
+    "test:unit": "node --experimental-strip-types --no-warnings=ExperimentalWarning --test \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@devvit/web": "0.15.1",
+    "@fontsource/press-start-2p": "5.3.0",
+    "@hono/node-server": "2.1.5",
+    "hono": "4.13.14"
+  },
+  "devDependencies": {
+    "@devvit/start": "0.15.1",
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.2",
+    "devvit": "0.15.1",
+    "eslint": "10.13.0",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "sharp": "0.35.5",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vite": "8.3.5"
+  }
+}
