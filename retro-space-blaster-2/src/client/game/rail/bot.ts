@@ -75,7 +75,9 @@ function aimPoint(state: Run): Point {
   for (const enemy of state.enemies) {
     if (!enemy.alive) continue;
     if (enemy.kind === 'kamikaze' && enemy.mode !== 'cruise') continue;
-    const rank = enemy.boss ? enemy.z - 120 : enemy.z;
+    // A bubbled hull is a decoy. Shoot the dish, or wait until the bubble pops.
+    if (enemy.bubble > 0) continue;
+    const rank = enemy.kind === 'generator' ? enemy.z - 80 : enemy.boss ? enemy.z - 120 : enemy.z;
     if (!best || rank < best.z) best = { x: enemy.x, y: enemy.y, z: rank };
   }
   if (!best) return { x: state.player.x, y: state.player.y };
@@ -115,6 +117,23 @@ export function botIntent(state: Run): Input {
       best = sample;
     }
   }
+  // Roll when the spot we're in is bad and a sideways burst is cleaner.
+  // Same speed limit as a person: only if the roll is off cooldown.
+  let roll: -1 | 0 | 1 = 0;
+  if (state.player.rollT <= 0 && state.player.rollCd <= 0) {
+    const here = dangerAt(state, { x: state.player.x, y: state.player.y });
+    if (here > 40) {
+      const left = dangerAt(state, {
+        x: clamp(state.player.x - 70, -TUNE.PLAY_X, TUNE.PLAY_X),
+        y: state.player.y,
+      });
+      const right = dangerAt(state, {
+        x: clamp(state.player.x + 70, -TUNE.PLAY_X, TUNE.PLAY_X),
+        y: state.player.y,
+      });
+      if (Math.min(left, right) + 10 < here) roll = left <= right ? -1 : 1;
+    }
+  }
   return {
     ax: 0,
     ay: 0,
@@ -123,6 +142,8 @@ export function botIntent(state: Run): Input {
     aimY: best.y,
     fire: true,
     special: false,
+    feel: 'chase',
+    roll,
   };
 }
 

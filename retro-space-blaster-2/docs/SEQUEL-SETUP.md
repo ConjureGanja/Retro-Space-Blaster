@@ -79,12 +79,23 @@ Tail and both nozzles point at the bottom of the PNG (toward the camera). The no
 
 `npm run art` runs before `dev`, `local`, and `build`.
 
-## Phone and desktop
+Enemy stamps live in `art/sprites/foes/`. `scripts/paint-foes.mjs` redraws them. Each foe has `idle`, `wind`, and `hit`. Bosses use the route id (`nebula`, `belt`, `station`, `ice`, `hive`). After a repaint, run `npm run art`.
 
-Landscape only. A tall phone gets a ROTATE card and a running fight pauses until you turn it. The page tries `screen.orientation.lock('landscape')`. If the browser refuses, the card stays.
+## Controls
 
-Drag on the left to move (it is a stick, not a cursor). FIRE and SPECIAL sit on the right. Desktop: mouse aims, WASD or arrows strafe, Z or left click fires, X or Shift or right click is the special, Esc pauses. A gamepad stick steers, A fires, B is the special, Start pauses.
+Only the device you used last moves the ship. A mouse that is sitting still does not pull against the arrow keys, and keys that are up do not cancel the cursor. Settings can lock this to Auto, Keyboard, Mouse, or Touch. Auto-fire is a separate switch.
+
+| Device   | Move                                                     | Fire       | Special                | Roll                                                               |
+| -------- | -------------------------------------------------------- | ---------- | ---------------------- | ------------------------------------------------------------------ |
+| Keyboard | WASD or arrows, with a short accel and a hard stop       | Z or Space | X or Shift             | Double-tap left or right, or the roll key (Q, E, or R in settings) |
+| Mouse    | Cursor, with a deadzone so a still cursor does not creep | Left click | Right-click the middle | Right-click the left or right side of the glass                    |
+| Phone    | Drag the left stick                                      | FIRE       | SPECIAL                | Double-flick the stick, or the ROLL button                         |
+| Gamepad  | Left stick                                               | A or RT    | B or LT                | LB / RB, or a double-flick of the stick                            |
+
+The roll is a sideways burst plus a full spin of the rear sprite. The middle of the spin cannot be hit. It then has to recharge. A shot that would have landed during the spin is a perfect dodge: a flash, a sound, and a little special meter back. Holding a key does not roll. The second press has to arrive within about a quarter of a second.
+
+Landscape only on a phone. A tall phone gets ROTATE and a running fight pauses.
 
 ## Feel, short version
 
-The fixed step is still 60Hz (`STEP_MS` in `main.js`). Falcon still waits 18 frames between shots, Wraith 16, Talon 24, Aegis and Vulcan 20. Pilot has 3 lives, cadet 5, ace 2. The base gun is one bolt. Split Lens in the yard adds side bolts. The open lane down the middle of the glass is the dodge. Stand in it when a volley flashes.
+The fixed step is still 60Hz (`STEP_MS` in `main.js`). Falcon still waits 18 frames between shots, Wraith 16, Talon 24, Aegis and Vulcan 20. Pilot has 3 lives, cadet 5, ace 2. The base gun is one bolt. Split Lens in the yard adds side bolts. The open lane is still the gap in a volley. Kills and boss hits freeze the world for a couple of frames and shake the glass, unless reduced effects is on. The first run shows four prompts: move, fire, roll, special. They go away once you've done each one.

@@ -44,6 +44,10 @@ export type Input = {
   aimY: number;
   fire: boolean;
   special: boolean;
+  /** Set by the input layer. Undefined means "chase if useAim, otherwise keys". */
+  feel?: 'keys' | 'mouse' | 'chase';
+  /** Rising edge. -1 left, 1 right, 0 or absent means no roll this frame. */
+  roll?: -1 | 0 | 1;
 };
 
 export const IDLE: Input = {
@@ -65,6 +69,8 @@ export type Bullet = {
   damage: number;
   bornZ: number;
   friendly: boolean;
+  /** A barrel roll already cashed this bullet in as a perfect dodge. */
+  grazed: boolean;
 };
 
 export type Enemy = {
@@ -101,6 +107,19 @@ export type Enemy = {
   phases: [PatternName, PatternName, PatternName] | null;
   summon: EnemyKind | null;
   seed: number;
+  /** Where the swoop-in is headed. x starts off to the side. */
+  homeX: number;
+  intro: number;
+  blink: number;
+  blinkTo: number;
+  blinkCd: number;
+  /** Bubble painted on by a living generator. Shots pop this before the hull. */
+  bubble: number;
+  /** Frames of the elite's reflect shield. The shot leaves on the last frame. */
+  reflectT: number;
+  flash: number;
+  /** Sprite family. Bosses use the route id so the queen isn't just a big elite. */
+  art: string;
 };
 
 export type Pickup = {
@@ -113,6 +132,21 @@ export type Pickup = {
 
 export type Earned = { kills: number; boss: number; pickups: number; clear: number };
 
+export type Floater = { x: number; y: number; z: number; text: string; life: number };
+
+export type Pilot = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  lives: number;
+  iframe: number;
+  fireCd: number;
+  rollT: number;
+  rollDir: -1 | 0 | 1;
+  rollCd: number;
+};
+
 export type RunMode = 'waves' | 'boss' | 'clear' | 'dead';
 
 export type Run = {
@@ -122,7 +156,12 @@ export type Run = {
   upgrades: Upgrades;
   frame: number;
   mode: RunMode;
-  player: { x: number; y: number; lives: number; iframe: number; fireCd: number };
+  player: Pilot;
+  hitStop: number;
+  shake: number;
+  perfect: number;
+  floaters: Floater[];
+  did: { move: boolean; fire: boolean; roll: boolean; special: boolean };
   energy: number;
   slow: number;
   shield: number;
@@ -230,7 +269,18 @@ function spawnEnemy(
     phases: null,
     summon: null,
     seed: Math.floor(state.rng() * 100),
+    homeX: x,
+    intro: child ? 0 : 14,
+    blink: 0,
+    blinkTo: x,
+    blinkCd: 80,
+    bubble: 0,
+    reflectT: 0,
+    flash: 0,
+    art: kind,
   };
+  // Start off to one side and slide onto the lane, so they don't pop in.
+  if (!child) enemy.x = clamp(x + (x >= 0 ? 36 : -36), -TUNE.PLAY_X - 20, TUNE.PLAY_X + 20);
   state.enemies.push(enemy);
   return enemy;
 }
@@ -243,13 +293,36 @@ function living(state: Run): number {
   return count;
 }
 
+/** Middle 60% of the roll. The wind-up and the landing can still be tagged. */
+export function rollInvuln(pilot: Pilot): boolean {
+  if (pilot.rollT <= 0) return false;
+  const elapsed = TUNE.ROLL_FRAMES - pilot.rollT;
+  return elapsed >= TUNE.ROLL_FRAMES * 0.2 && elapsed < TUNE.ROLL_FRAMES * 0.8;
+}
+
 function hurt(state: Run): void {
   if (state.god || state.invincible || state.player.iframe > 0 || state.shield > 0) return;
+  if (rollInvuln(state.player)) return;
   state.player.lives -= 1;
   state.player.iframe = TUNE.IFRAME;
   state.hits += 1;
+  state.shake = Math.max(state.shake, 7);
   state.sfx('explode');
   if (state.player.lives <= 0) state.mode = 'dead';
+}
+
+function perfectDodge(state: Run): void {
+  state.perfect = 12;
+  state.shake = Math.max(state.shake, 4);
+  const refund = state.ship.ability.max * 0.12;
+  state.energy = Math.min(state.ship.ability.max, state.energy + refund);
+  state.sfx('perfect');
+  pushFloater(state, state.player.x, state.player.y, 40, 'DODGE');
+}
+
+function pushFloater(state: Run, x: number, y: number, z: number, text: string): void {
+  state.floaters.push({ x, y, z, text, life: 28 });
+  if (state.floaters.length > 14) state.floaters.shift();
 }
 
 function killEnemy(state: Run, enemy: Enemy): void {
@@ -272,17 +345,43 @@ function killEnemy(state: Run, enemy: Enemy): void {
   }
 }
 
-function damageEnemy(state: Run, enemy: Enemy, amount: number): void {
+function damageEnemy(state: Run, enemy: Enemy, amount: number, shotX = enemy.x): void {
   if (!enemy.alive || amount <= 0) return;
-  if (enemy.shield > 0) {
+  enemy.flash = 6;
+  // A generator's bubble pops before the hull. The dish itself has no bubble.
+  if (enemy.bubble > 0) {
+    enemy.bubble -= amount;
+    if (enemy.bubble <= 0) {
+      // Negative means "popped". A living dish does not repaint it.
+      enemy.bubble = -1;
+      pushFloater(state, enemy.x, enemy.y, enemy.z, 'POP');
+    }
+    return;
+  }
+  // Tank plate only covers the nose. A shot from off to the side, the place
+  // a roll puts you, goes into the hull. Breaking the plate still works too.
+  const flanking = enemy.kind === 'tank' && Math.abs(shotX - enemy.x) > 26;
+  if (enemy.shield > 0 && !flanking) {
     enemy.shield -= amount;
+    pushFloater(state, enemy.x, enemy.y, enemy.z, 'SHIELD');
     if (enemy.shield > 0) return;
     amount = -enemy.shield;
     enemy.shield = 0;
     if (amount <= 0) return;
   }
   enemy.hp -= amount;
-  if (enemy.hp <= 0) killEnemy(state, enemy);
+  pushFloater(state, enemy.x, enemy.y, enemy.z, String(Math.max(1, Math.round(amount))));
+  if (enemy.boss && state.hitStop === 0) {
+    // One frame of hold on a boss hit. Chaining it on every bolt would turn
+    // the fight into slow motion, which is the chrono field's job.
+    state.hitStop = 1;
+    state.shake = Math.max(state.shake, 5);
+  }
+  if (enemy.hp <= 0) {
+    state.hitStop = Math.max(state.hitStop, enemy.boss ? 4 : 2);
+    state.shake = Math.max(state.shake, enemy.boss ? 9 : 5);
+    killEnemy(state, enemy);
+  }
 }
 
 function release(state: Run, enemy: Enemy): void {
@@ -312,6 +411,7 @@ function release(state: Run, enemy: Enemy): void {
       damage: 1,
       bornZ: enemy.z,
       friendly: false,
+      grazed: false,
     });
   }
   state.sfx('enemyShoot');
@@ -407,6 +507,60 @@ function moveEnemy(state: Run, enemy: Enemy, slow: number): void {
     enemy.x += Math.sin(state.frame * 0.07 + enemy.seed) * 0.65;
   }
 
+  // Slide onto the lane. A ship that appears on its mark feels like a pop.
+  if (enemy.intro > 0 && enemy.mode !== 'dive') {
+    enemy.intro -= 1;
+    enemy.x += (enemy.homeX - enemy.x) * 0.24;
+  }
+
+  // Strafer blink: the white flash is the promise, then it is somewhere else.
+  if (enemy.kind === 'strafer' && enemy.mode !== 'dive' && enemy.intro <= 0) {
+    if (enemy.blink > 0) {
+      enemy.blink -= 1;
+      if (enemy.blink === 0) enemy.x = enemy.blinkTo;
+    } else if (enemy.blinkCd > 0) {
+      enemy.blinkCd -= 1;
+    } else if (enemy.z > TUNE.Z_NO_FIRE) {
+      enemy.blink = 16;
+      enemy.blinkCd = 150;
+      enemy.blinkTo = clamp(enemy.homeX + (state.rng() - 0.5) * 80, -100, 100);
+    }
+  }
+
+  // Elite reflect. The gold disc shows for the whole window. The bullet
+  // leaves on the last frame, from in front, off the safe lane.
+  if (enemy.kind === 'elite' && !enemy.boss && enemy.intro <= 0) {
+    if (enemy.reflectT > 0) {
+      enemy.reflectT -= 1;
+      if (enemy.reflectT === 0 && enemy.z >= TUNE.Z_NO_FIRE) {
+        const safe = safeLane(state.frame);
+        let sx = state.player.x >= safe ? state.player.x + 60 : state.player.x - 60;
+        if (Math.abs(sx - safe) < 44) sx += 70;
+        sx = clamp(sx, -TUNE.PLAY_X, TUNE.PLAY_X);
+        if (state.eShots.length < state.diff.shotCap) {
+          state.eShots.push({
+            x: sx,
+            y: state.player.y,
+            z: enemy.z,
+            vz: -2.5 * state.diff.bulletSpeed,
+            r: 7,
+            damage: 1,
+            bornZ: enemy.z,
+            friendly: false,
+            grazed: false,
+          });
+          state.sfx('enemyShoot');
+        }
+      }
+    } else if (enemy.blinkCd > 0) {
+      enemy.blinkCd -= 1;
+    } else if (enemy.z > TUNE.Z_NO_FIRE) {
+      enemy.reflectT = 28;
+      enemy.blinkCd = 210;
+    }
+  }
+
+  if (enemy.flash > 0) enemy.flash -= 1;
   if (enemy.mode !== 'dive' && enemy.hold > 0 && enemy.z < enemy.hold) enemy.z = enemy.hold;
   if (enemy.z < TUNE.Z_CULL) {
     enemy.alive = false;
@@ -421,31 +575,92 @@ function bossPhase(state: Run, enemy: Enemy): void {
   if (phase === enemy.phase) return;
   enemy.phase = phase;
   state.sfx('bossAlert');
+  enemy.flash = 16;
   if (phase > 0 && enemy.summon && living(state) < TUNE.MAX_ACTIVE) {
     const x = phase === 1 ? -70 : 70;
     spawnEnemy(state, enemy.summon, x, enemy.y, TUNE.Z_SPAWN, false);
   }
 }
 
+function startRoll(state: Run, dir: -1 | 1): void {
+  const pilot = state.player;
+  if (pilot.rollT > 0 || pilot.rollCd > 0) return;
+  pilot.rollT = TUNE.ROLL_FRAMES;
+  pilot.rollDir = dir;
+  state.did.roll = true;
+  state.sfx('dash');
+}
+
 function movePlayer(state: Run, input: Input): void {
   const pilot = state.player;
   const speed = playerSpeed(state);
-  const keyed = Math.abs(input.ax) > 0.02 || Math.abs(input.ay) > 0.02;
-  if (keyed && !input.useAim) {
-    pilot.x += clamp(input.ax, -1, 1) * speed;
-    pilot.y += clamp(input.ay, -1, 1) * speed;
-  } else if (input.useAim) {
+  const feel = input.feel ?? (input.useAim ? 'chase' : 'keys');
+  if (input.roll === -1 || input.roll === 1) startRoll(state, input.roll);
+  if (Math.abs(input.ax) > 0.08 || Math.abs(input.ay) > 0.08 || feel === 'mouse') {
+    state.did.move = true;
+  }
+
+  if (feel === 'mouse') {
+    // Deadzone: a cursor sitting on the hull does not creep the ship.
+    const dx = input.aimX - pilot.x;
+    const dy = input.aimY - pilot.y;
+    if (Math.abs(dx) <= TUNE.MOUSE_DEAD && Math.abs(dy) <= TUNE.MOUSE_DEAD) {
+      pilot.vx = 0;
+      pilot.vy = 0;
+    } else {
+      const dist = Math.hypot(dx, dy) || 1;
+      const step = Math.min(speed, dist * 0.42);
+      pilot.x += (dx / dist) * step;
+      pilot.y += (dy / dist) * step;
+      pilot.vx = (dx / dist) * step;
+      pilot.vy = (dy / dist) * step;
+    }
+  } else if (feel === 'chase') {
     const dx = input.aimX - pilot.x;
     const dy = input.aimY - pilot.y;
     const dist = Math.hypot(dx, dy);
-    if (dist <= speed || dist === 0) {
+    if (!input.useAim || dist === 0) {
+      pilot.vx = 0;
+      pilot.vy = 0;
+    } else if (dist <= speed) {
       pilot.x = input.aimX;
       pilot.y = input.aimY;
+      pilot.vx = dx;
+      pilot.vy = dy;
     } else {
-      pilot.x += (dx / dist) * speed;
-      pilot.y += (dy / dist) * speed;
+      pilot.vx = (dx / dist) * speed;
+      pilot.vy = (dy / dist) * speed;
+      pilot.x += pilot.vx;
+      pilot.y += pilot.vy;
     }
+  } else {
+    // Keys: accelerate toward the stick, and drop the speed when it recenters.
+    // Releasing the key must stop the ship. A leftover velocity is drift.
+    const targetX = clamp(input.ax, -1, 1) * speed;
+    const targetY = clamp(input.ay, -1, 1) * speed;
+    const follow =
+      Math.abs(input.ax) < 0.04 && Math.abs(input.ay) < 0.04 ? TUNE.KEY_RELEASE : TUNE.KEY_ACCEL;
+    pilot.vx += (targetX - pilot.vx) * follow;
+    pilot.vy += (targetY - pilot.vy) * follow;
+    if (Math.abs(pilot.vx) < 0.08) pilot.vx = 0;
+    if (Math.abs(pilot.vy) < 0.08) pilot.vy = 0;
+    pilot.x += pilot.vx;
+    pilot.y += pilot.vy;
   }
+
+  // The roll is a sideways burst on top of steering, like a shoulder charge.
+  if (pilot.rollT > 0) {
+    const along = pilot.rollT / TUNE.ROLL_FRAMES;
+    pilot.x += pilot.rollDir * speed * 2.15 * along;
+    pilot.rollT -= 1;
+    if (pilot.rollT <= 0) {
+      pilot.rollDir = 0;
+      pilot.rollCd = TUNE.ROLL_COOLDOWN;
+    }
+  } else if (pilot.rollCd > 0) {
+    pilot.rollCd -= 1;
+  }
+
   pilot.x = clamp(pilot.x, -TUNE.PLAY_X, TUNE.PLAY_X);
   pilot.y = clamp(pilot.y, -TUNE.PLAY_Y, TUNE.PLAY_Y);
   if (pilot.iframe > 0) pilot.iframe -= 1;
@@ -518,27 +733,60 @@ function playerFire(state: Run, input: Input): void {
       damage: state.ship.damage,
       bornZ: TUNE.Z_MUZZLE,
       friendly: true,
+      grazed: false,
     });
   }
   state.muzzle = 5;
   state.sfx('shoot');
 }
 
+function paintBubbles(state: Run): void {
+  const gens = state.enemies.filter((enemy) => enemy.alive && enemy.kind === 'generator');
+  for (const enemy of state.enemies) {
+    if (!enemy.alive || enemy.kind === 'generator' || enemy.boss || enemy.kind === 'mine') continue;
+    const covered = gens.some(
+      (gen) => Math.hypot(gen.x - enemy.x, gen.y - enemy.y) < 68 && Math.abs(gen.z - enemy.z) < 150
+    );
+    if (enemy.bubble < 0) {
+      if (!covered) enemy.bubble = 0;
+      continue;
+    }
+    if (covered && enemy.bubble === 0) enemy.bubble = 4;
+    if (!covered) enemy.bubble = 0;
+  }
+}
+
 function collide(state: Run): void {
   const pilot = state.player;
+  paintBubbles(state);
   for (const shot of state.pShots) {
     for (const enemy of state.enemies) {
       if (!enemy.alive) continue;
       if (Math.abs(shot.z - enemy.z) > 40) continue;
       if (Math.hypot(shot.x - enemy.x, shot.y - enemy.y) > enemy.r + shot.r) continue;
-      damageEnemy(state, enemy, shot.damage);
+      // Reflect window eats the bolt. The telegraphed return shot is separate,
+      // so a reflected hit still has travel time and a hole to sit in.
+      if (enemy.reflectT > 0 && enemy.kind === 'elite' && !enemy.boss) {
+        shot.z = 9999;
+        enemy.flash = 4;
+        break;
+      }
+      damageEnemy(state, enemy, shot.damage, shot.x);
       shot.z = 9999;
       break;
     }
   }
   for (const shot of state.eShots) {
     if (shot.z < TUNE.Z_CULL || shot.z > TUNE.Z_IMPACT) continue;
-    if (Math.hypot(shot.x - pilot.x, shot.y - pilot.y) <= shot.r + TUNE.PLAYER_R) hurt(state);
+    if (Math.hypot(shot.x - pilot.x, shot.y - pilot.y) > shot.r + TUNE.PLAYER_R) continue;
+    if (rollInvuln(pilot)) {
+      if (!shot.grazed) {
+        shot.grazed = true;
+        perfectDodge(state);
+      }
+      continue;
+    }
+    hurt(state);
   }
   // Only divers and mines occupy your lane as a body hit. Everything else
   // is removed at the cull line, so sharing an x with a ship you are shooting
@@ -646,6 +894,9 @@ function startBoss(state: Run): void {
   boss.shield = 0;
   boss.maxShield = 0;
   boss.splits = false;
+  boss.art = state.level.id;
+  boss.intro = 0;
+  boss.homeX = 0;
   state.sfx('bossAlert');
 }
 
@@ -689,10 +940,20 @@ export function createRun(opts: RunOpts = {}): Run {
     player: {
       x: 0,
       y: 0,
+      vx: 0,
+      vy: 0,
       lives: diff.lives + upgrades.hull,
       iframe: 0,
       fireCd: 0,
+      rollT: 0,
+      rollDir: 0,
+      rollCd: 0,
     },
+    hitStop: 0,
+    shake: 0,
+    perfect: 0,
+    floaters: [],
+    did: { move: false, fire: false, roll: false, special: false },
     energy: ship.ability.mode === 'drain' ? ship.ability.max : 0,
     slow: 1,
     shield: 0,
@@ -733,7 +994,19 @@ export function createRun(opts: RunOpts = {}): Run {
  */
 export function step(state: Run, input: Input): void {
   if (state.mode === 'clear' || state.mode === 'dead') return;
+  // Hit-stop is a tiny freeze so a kill reads. The world holds its breath.
+  if (state.hitStop > 0) {
+    state.hitStop -= 1;
+    state.shake *= 0.86;
+    return;
+  }
   state.frame += 1;
+  if (input.fire) state.did.fire = true;
+  if (input.special) state.did.special = true;
+  if (state.shake > 0) state.shake *= 0.82;
+  if (state.perfect > 0) state.perfect -= 1;
+  for (const floater of state.floaters) floater.life -= 1;
+  state.floaters = state.floaters.filter((floater) => floater.life > 0);
   if (state.bannerT > 0) state.bannerT -= 1;
   if (state.muzzle > 0) state.muzzle -= 1;
   if (state.buff.rapid > 0) state.buff.rapid -= 1;

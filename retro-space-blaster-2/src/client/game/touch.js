@@ -12,7 +12,7 @@
 
 import { STATE, Runtime } from './config.js';
 import { Sound } from './audio.js';
-import { setStick, setTouchFire, setTouchSpecial } from './rail/controls.ts';
+import { requestTouchRoll, setStick, setTouchFire, setTouchSpecial } from './rail/controls.ts';
 
 let heldForPortrait = false;
 
@@ -117,6 +117,15 @@ export function initTouch(canvas) {
     document.body.classList.add('touch-ui');
     holdButton(document.getElementById('btn-fire'), 'fire');
     holdButton(document.getElementById('btn-special'), 'special');
+    const roll = document.getElementById('btn-roll');
+    if (roll) {
+        roll.addEventListener('pointerdown', (event) => {
+            event.preventDefault();
+            requestTouchRoll();
+            roll.classList.add('held');
+        });
+        roll.addEventListener('pointerup', () => roll.classList.remove('held'));
+    }
     bindMovePad();
     window.addEventListener('resize', applyOrientation);
     window.addEventListener('orientationchange', applyOrientation);

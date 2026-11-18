@@ -41,6 +41,7 @@ test('an enemy shot already behind the cull line does not survive the step', () 
     damage: 1,
     bornZ: TUNE.Z_NO_FIRE,
     friendly: false,
+    grazed: false,
   });
   step(state, IDLE);
   assert.deepEqual(audit(state), []);
@@ -58,6 +59,7 @@ test('audit flags a shot that was born past the no-fire line', () => {
     damage: 1,
     bornZ: TUNE.Z_NO_FIRE - 12,
     friendly: false,
+    grazed: false,
   });
   const problems = audit(state);
   assert.ok(problems.some((line) => line.includes('no-fire')));

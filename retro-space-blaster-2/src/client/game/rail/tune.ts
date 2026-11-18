@@ -36,6 +36,16 @@ export const TUNE = {
   IFRAME: 84,
   /** Hard cap so a bug can't fill the screen with metal. */
   MAX_ACTIVE: 12,
+  /** Barrel roll length. The middle 60% of these frames cannot be hit. */
+  ROLL_FRAMES: 18,
+  /** Frames before another roll. A double tap during this does nothing. */
+  ROLL_COOLDOWN: 46,
+  /** Keyboard eases toward this fraction of top speed each frame. */
+  KEY_ACCEL: 0.55,
+  /** How hard the keys let go. High means the ship stops instead of drifting. */
+  KEY_RELEASE: 0.42,
+  /** Mouse ignores the cursor until it is this far from the hull, in world units. */
+  MOUSE_DEAD: 8,
 
   /** Pixel spread of one world unit at the ship's depth. Tuned for a 1280-wide view. */
   X_SPREAD: 3.15,

@@ -12,6 +12,7 @@ import { STATE, Runtime } from '../config.js';
 import { Cloud } from '../platform/cloud.js';
 import { store } from '../store.js';
 import { botIntent } from './bot.ts';
+import { activeDevice, setControlOptions } from './controls.ts';
 import { LEVELS, SHOP, getLevel, gradeFor, nextLevelId } from './content.ts';
 import { drawFrame } from './draw.js';
 import { SHIPS } from './ships.ts';
@@ -28,6 +29,11 @@ let useBot = false;
 let pauseAt = 0;
 let menuFrame = 0;
 let reduced = false;
+let scheme = 'auto';
+let autoFire = false;
+let rollKey = 'q';
+let demoRoll = false;
+let demoSent = false;
 let diffId = 'pilot';
 let shipIdx = 1;
 let levelId = 'nebula';
@@ -177,6 +183,13 @@ function paintSettings() {
   if (music) music.value = String(store.get('volMusic', 0.5));
   if (sfx) sfx.value = String(store.get('volSfx', 0.8));
   if (box) box.checked = reduced;
+  const schemeBtn = root.querySelector('#sb2-scheme');
+  const fireBtn = root.querySelector('#sb2-autofire');
+  const rollBtn = root.querySelector('#sb2-rollkey');
+  if (schemeBtn) schemeBtn.textContent = `CONTROLS  ${scheme.toUpperCase()}`;
+  if (fireBtn) fireBtn.textContent = `AUTO-FIRE  ${autoFire ? 'ON' : 'OFF'}`;
+  if (rollBtn) rollBtn.textContent = `ROLL KEY  ${rollKey.toUpperCase()}`;
+  setControlOptions({ scheme, autoFire, rollKey });
 }
 
 function paintBoard() {
@@ -299,6 +312,8 @@ export function beginLevel(id, opts = {}) {
   userPaused = false;
   useBot = opts.bot === true;
   pauseAt = opts.pauseAt || 0;
+  demoRoll = opts.demoRoll === true;
+  demoSent = false;
   Runtime.state = STATE.PLAYING;
   Runtime.shipSpriteName = ship().sprite;
   Sound.startBGM();
@@ -346,6 +361,29 @@ function syncHud() {
     progress.style.width = `${ratio * 100}%`;
   }
   if (banner) banner.textContent = run.bannerT > 0 ? run.banner : '';
+  const rollFill = root.querySelector('.roll-fill');
+  if (rollFill) {
+    const ready =
+      run.player.rollT > 0
+        ? run.player.rollT / 18
+        : run.player.rollCd > 0
+          ? 1 - run.player.rollCd / 46
+          : 1;
+    rollFill.style.width = `${Math.max(0, Math.min(1, ready)) * 100}%`;
+  }
+  const coach = root.querySelector('.coach');
+  if (coach) {
+    const done = Number(store.get('coach', 0)) >= 4;
+    if (useBot || done) coach.textContent = '';
+    else if (!run.did.move) coach.textContent = 'MOVE — WASD, ARROWS, OR MOUSE';
+    else if (!run.did.fire) coach.textContent = 'FIRE — Z OR LEFT CLICK';
+    else if (!run.did.roll) coach.textContent = 'ROLL — DOUBLE TAP LEFT OR RIGHT';
+    else if (!run.did.special) coach.textContent = 'SPECIAL — X, SHIFT, OR RIGHT CLICK';
+    else {
+      coach.textContent = '';
+      store.set('coach', 4);
+    }
+  }
 }
 
 function el(tag, className, text) {
@@ -448,12 +486,18 @@ function build() {
   reducedBox.type = 'checkbox';
   reducedBox.id = 'sb2-reduced';
   reducedLabel.prepend(reducedBox);
-  form.append(music, sfx, reducedLabel);
+  const schemeBtn = button('CONTROLS  AUTO', 'scheme');
+  schemeBtn.id = 'sb2-scheme';
+  const fireBtn = button('AUTO-FIRE  OFF', 'autofire');
+  fireBtn.id = 'sb2-autofire';
+  const rollBtn = button('ROLL KEY  Q', 'rollkey');
+  rollBtn.id = 'sb2-rollkey';
+  form.append(music, sfx, reducedLabel, schemeBtn, fireBtn, rollBtn);
   form.append(
     el(
       'p',
       'dim',
-      'Mouse aims. WASD or arrows strafe. Z or left click fires. X, Shift, or right click is the special. Esc pauses. Gamepad: stick, A fire, B special, Start pause. Phone: landscape, drag the left side, FIRE and SPECIAL on the right.'
+      'The last device you touch drives the ship. A still mouse does not fight the keys. Double-tap left or right to barrel-roll. Q rolls toward your steer. Right-click the side of the glass does too. Bumpers roll on a pad. Phone: flick the stick twice, or tap ROLL.'
     )
   );
   settings.append(el('h1', '', 'SETTINGS'), form, button('BACK', 'hangar'));
@@ -476,11 +520,14 @@ function build() {
   const specLabel = el('div', 'bar-label', 'SPECIAL');
   const spec = el('div', 'bar');
   spec.append(el('span', 'special-fill'));
+  const rollLabel = el('div', 'bar-label', 'ROLL');
+  const rollBar = el('div', 'bar');
+  rollBar.append(el('span', 'roll-fill'));
   const bossWrap = el('div', 'boss-wrap');
   bossWrap.append(el('div', 'bar-label boss-name', 'BOSS'), el('div', 'bar boss'));
   bossWrap.querySelector('.bar').append(el('span', 'boss-fill'));
-  bars.append(progLabel, prog, specLabel, spec, bossWrap);
-  hud.append(top, bars, el('div', 'banner', ''));
+  bars.append(progLabel, prog, specLabel, spec, rollLabel, rollBar, bossWrap);
+  hud.append(top, bars, el('div', 'banner', ''), el('div', 'coach', ''));
 
   const pause = el('section', 'screen');
   pause.dataset.screen = 'pause';
@@ -507,7 +554,41 @@ function build() {
     button('ROUTE', 'map')
   );
 
-  root.append(title, hangar, map, shop, settings, board, hud, pause, results, over);
+  const bestiary = el('section', 'screen');
+  bestiary.dataset.screen = 'bestiary';
+  const grid = el('div', 'bestiary');
+  const stamps = [
+    'swarmer',
+    'strafer',
+    'turret',
+    'tank',
+    'kamikaze',
+    'miner',
+    'splitter',
+    'elite',
+    'mine',
+    'generator',
+    'nebula',
+    'belt',
+    'station',
+    'ice',
+    'hive',
+  ];
+  for (const name of stamps) {
+    for (const frame of ['idle', 'wind', 'hit']) {
+      const fig = document.createElement('figure');
+      const img = document.createElement('img');
+      img.src = `/assets/sprites/foes/${name}-${frame}.webp`;
+      img.alt = `${name} ${frame}`;
+      img.width = 64;
+      img.height = 64;
+      fig.append(img, el('figcaption', '', `${name} ${frame}`));
+      grid.append(fig);
+    }
+  }
+  bestiary.append(el('h1', '', 'STAMPS'), grid, button('HANGAR', 'hangar'));
+
+  root.append(title, hangar, map, shop, settings, board, hud, pause, results, over, bestiary);
   document.getElementById('game-container').appendChild(root);
 
   root.addEventListener('click', (event) => {
@@ -523,6 +604,20 @@ function build() {
       store.set('ship', shipIdx);
       Sound.play('ding');
       paintHangar();
+    } else if (kind === 'scheme') {
+      const order = ['auto', 'keyboard', 'mouse', 'touch'];
+      scheme = order[(order.indexOf(scheme) + 1) % order.length];
+      store.set('scheme', scheme);
+      paintSettings();
+    } else if (kind === 'autofire') {
+      autoFire = !autoFire;
+      store.set('autoFire', autoFire);
+      paintSettings();
+    } else if (kind === 'rollkey') {
+      const order = ['q', 'e', 'r'];
+      rollKey = order[(order.indexOf(rollKey) + 1) % order.length];
+      store.set('rollKey', rollKey);
+      paintSettings();
     } else if (kind === 'diff') {
       const index = Math.max(0, DIFF_ORDER.indexOf(diffId));
       diffId = DIFF_ORDER[(index + 1) % DIFF_ORDER.length];
@@ -567,6 +662,19 @@ function loadSettings() {
   const savedShip = Number(store.get('ship', 1));
   if (SHIPS.some((entry) => entry.idx === savedShip)) shipIdx = savedShip;
   reduced = store.get('reduced', false) === true;
+  const savedScheme = store.get('scheme', 'auto');
+  if (
+    savedScheme === 'auto' ||
+    savedScheme === 'keyboard' ||
+    savedScheme === 'mouse' ||
+    savedScheme === 'touch'
+  ) {
+    scheme = savedScheme;
+  }
+  autoFire = store.get('autoFire', false) === true;
+  const savedRoll = store.get('rollKey', 'q');
+  if (savedRoll === 'q' || savedRoll === 'e' || savedRoll === 'r') rollKey = savedRoll;
+  setControlOptions({ scheme, autoFire, rollKey });
   document.body.classList.toggle('reduced', reduced);
   applyTheme(
     typeof store.get('theme', 'theme-neon') === 'string'
@@ -620,6 +728,7 @@ export function bootQuery(params) {
       bot: params.has('bot'),
       pauseAt: Number(params.get('pause') || 0),
       seed: Number(params.get('seed') || 1),
+      demoRoll: params.get('demo') === 'roll',
     });
   }
   if (wanted === 'pause') {
@@ -650,7 +759,14 @@ export function tickShell(input) {
         aimY: input.aimY,
         fire: input.fire,
         special: input.special,
+        feel: input.feel,
+        roll: input.roll,
       };
+  if (demoRoll && !demoSent && run.frame >= 28) {
+    simInput.roll = 1;
+    demoSent = true;
+  }
+  setControlOptions({ scheme, autoFire, rollKey });
   step(run, simInput);
   if (pauseAt > 0 && run.frame >= pauseAt) {
     pauseAt = 0;
@@ -687,7 +803,19 @@ export function devApi() {
       run.player.lives = n;
     },
     help() {
-      console.info('RSB.dev.level(id)  RSB.dev.boss()  RSB.dev.god()  RSB.dev.lives(n)');
+      console.info(
+        'RSB.dev.level(id)  RSB.dev.boss()  RSB.dev.god()  RSB.dev.lives(n)  RSB.dev.state()'
+      );
+    },
+    state() {
+      if (!run) return null;
+      return {
+        x: run.player.x,
+        y: run.player.y,
+        rollT: run.player.rollT,
+        rollCd: run.player.rollCd,
+        device: activeDevice(),
+      };
     },
   };
 }

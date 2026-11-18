@@ -97,6 +97,19 @@ const SPRITE_FILES = {
     upgLife:         '/assets/sprites/extralife-hullrepair.webp'
 };
 
+// Front-view foe stamps painted by scripts/paint-foes.mjs.
+// Three frames each: idle, the wind-up, and the flinch.
+const FOE_NAMES = [
+    'swarmer', 'strafer', 'turret', 'tank', 'kamikaze', 'miner',
+    'splitter', 'elite', 'mine', 'generator',
+    'nebula', 'belt', 'station', 'ice', 'hive',
+];
+for (const name of FOE_NAMES) {
+    for (const frame of ['idle', 'wind', 'hit']) {
+        SPRITE_FILES[`foe-${name}-${frame}`] = `/assets/sprites/foes/${name}-${frame}.webp`;
+    }
+}
+
 // These upgrade icons ship as full trading-card art (icon square on top,
 // baked-in title text below) — keep only the top square so the text, which is
 // illegible at icon size, is cut away. The factor trims the square's height

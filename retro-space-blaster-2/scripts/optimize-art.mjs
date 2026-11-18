@@ -135,7 +135,8 @@ async function main() {
 
     const width = WIDTH_OVERRIDES[file] ?? SPRITE_WIDTH;
     const isSvg = encodePath.toLowerCase().endsWith('.svg');
-    const pixelArt = file.startsWith('rear/');
+    // Rear plates and the foe stamps are graph paper. Don't blur the squares.
+    const pixelArt = file.startsWith('rear/') || file.startsWith('foes/');
 
     let input;
     if (isSvg) {

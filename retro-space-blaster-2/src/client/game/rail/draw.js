@@ -92,11 +92,14 @@ function blot(ctx, kind, radius) {
   ctx.closePath();
 }
 
-function drawRear(ctx, sprite, x, y, width, roll, alpha) {
+function drawRear(ctx, sprite, x, y, width, roll, alpha, squash = 1) {
   const key = `rear-${sprite}`;
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(roll);
+  // Squash through zero and out the other side. That is a barrel roll
+  // drawn with one picture: edge-on in the middle, mirrored on the way back.
+  ctx.scale(squash, 1);
   ctx.globalAlpha = alpha;
   if (Sprites.isReady(key)) {
     const img = Sprites.get(key);
@@ -141,41 +144,106 @@ function drawSafeLane(ctx, frame, theme, w, h) {
   ctx.restore();
 }
 
+function foeKey(enemy) {
+  const family = enemy.boss ? enemy.art : enemy.kind;
+  let frameName = 'idle';
+  if (enemy.flash > 0) frameName = 'hit';
+  else if (enemy.windup > 0 || enemy.mode === 'windup' || enemy.reflectT > 0 || enemy.blink > 8) {
+    frameName = 'wind';
+  }
+  return `foe-${family}-${frameName}`;
+}
+
 function drawEnemy(ctx, enemy, w, h, frame) {
   const p = project(enemy.x, enemy.y, enemy.z, w, h);
-  const radius = Math.max(6, enemy.r * p.scale * TUNE.X_SPREAD * 0.85);
+  const radius = Math.max(8, enemy.r * p.scale * TUNE.X_SPREAD * 0.95);
+  const intro = enemy.intro > 0 ? 0.45 + (1 - enemy.intro / 14) * 0.55 : 1;
   ctx.save();
   ctx.translate(p.x, p.y);
-  ctx.globalAlpha = enemy.boss ? 1 : p.alpha;
-  ctx.fillStyle = enemy.boss ? enemy.accent : enemy.kind === 'mine' ? '#ffd27a' : '#d7fff0';
-  ctx.strokeStyle = enemy.accent || '#9dffc8';
-  ctx.lineWidth = enemy.boss ? 3 : 1.5;
-  if (enemy.kind === 'kamikaze' && enemy.mode === 'windup') {
-    ctx.strokeStyle = frame % 8 < 4 ? '#ff5a6a' : '#ffd0d6';
+  ctx.globalAlpha = (enemy.boss ? 1 : p.alpha) * (enemy.blink > 10 ? 0.35 : 1);
+  const key = foeKey(enemy);
+  if (Sprites.isReady(key)) {
+    ctx.imageSmoothingEnabled = false;
+    const img = Sprites.get(key);
+    const iw = img.naturalWidth || img.width || 32;
+    const ih = img.naturalHeight || img.height || 32;
+    const size = radius * 2.4 * intro;
+    const scale = size / Math.max(iw, ih);
+    ctx.drawImage(img, (-iw * scale) / 2, (-ih * scale) / 2, iw * scale, ih * scale);
+  } else {
+    ctx.fillStyle = enemy.boss ? enemy.accent : '#d7fff0';
+    ctx.strokeStyle = enemy.accent || '#9dffc8';
+    blot(ctx, enemy.boss ? 'boss' : enemy.kind, radius * intro);
+    ctx.fill();
+    ctx.stroke();
   }
-  blot(ctx, enemy.boss ? 'boss' : enemy.kind, radius);
-  ctx.fill();
-  ctx.stroke();
-  if (enemy.maxShield > 0 && enemy.shield > 0) {
-    ctx.globalAlpha *= 0.85;
-    ctx.strokeStyle = '#9af6ff';
+  if (enemy.flash > 0) {
+    ctx.globalAlpha = 0.45;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (enemy.bubble > 0) {
+    ctx.globalAlpha = 0.45;
+    ctx.strokeStyle = '#7ef0ff';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(0, 0, radius + 5, Math.PI * 1.15, Math.PI * 1.85);
+    ctx.arc(0, 0, radius + 8, 0, Math.PI * 2);
     ctx.stroke();
+  }
+  if (enemy.reflectT > 0) {
+    ctx.globalAlpha = 0.7;
+    ctx.strokeStyle = frame % 6 < 3 ? '#ffe14a' : '#fff6c2';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius + 10, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  if ((enemy.maxShield > 0 && enemy.shield > 0) || (enemy.kind === 'tank' && enemy.shield > 0)) {
+    ctx.globalAlpha = 0.9;
+    ctx.strokeStyle = '#9af6ff';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius + 4, Math.PI * 1.2, Math.PI * 1.8);
+    ctx.stroke();
+  }
+  if (enemy.boss || enemy.maxHp >= 8) {
+    const ratio = Math.max(0, enemy.hp / enemy.maxHp);
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = '#04120c';
+    ctx.fillRect(-radius, -radius - 8, radius * 2, 3);
+    ctx.fillStyle = enemy.boss ? '#ff5d6c' : '#7dffb2';
+    ctx.fillRect(-radius, -radius - 8, radius * 2 * ratio, 3);
   }
   ctx.restore();
 
-  if (enemy.pending.length && enemy.windup > 0) {
-    const pulse = 0.45 + 0.55 * Math.abs(Math.sin(frame * 0.3));
-    for (const dot of enemy.pending) {
-      const mark = project(dot.x, dot.y, Math.max(enemy.z, TUNE.Z_CULL), w, h);
+  if (enemy.kind === 'strafer' && enemy.blink > 0) {
+    const mark = project(enemy.blinkTo, enemy.y, enemy.z, w, h);
+    ctx.save();
+    ctx.strokeStyle = '#ff7ad9';
+    ctx.globalAlpha = 0.8;
+    ctx.strokeRect(mark.x - 8, mark.y - 8, 16, 16);
+    ctx.restore();
+  }
+
+  if ((enemy.pending.length && enemy.windup > 0) || enemy.mode === 'windup') {
+    const dots = enemy.pending.length ? enemy.pending : [{ x: enemy.lockX, y: enemy.lockY }];
+    const pulse = 0.45 + 0.55 * Math.abs(Math.sin(frame * 0.35));
+    for (const dot of dots) {
+      const mark = project(dot.x, dot.y, Math.max(enemy.z * 0.35, TUNE.Z_CULL), w, h);
       ctx.save();
-      ctx.globalAlpha = 0.35 + pulse * 0.45;
+      ctx.globalAlpha = 0.4 + pulse * 0.5;
       ctx.strokeStyle = enemy.kind === 'kamikaze' ? '#ff5a6a' : '#ffe14a';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(mark.x, mark.y, 8 + pulse * 10, 0, Math.PI * 2);
+      ctx.arc(mark.x, mark.y, 7 + pulse * 12, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(mark.x - 12, mark.y);
+      ctx.lineTo(mark.x + 12, mark.y);
+      ctx.moveTo(mark.x, mark.y - 12);
+      ctx.lineTo(mark.x, mark.y + 12);
       ctx.stroke();
       ctx.restore();
     }
@@ -213,6 +281,10 @@ export function drawFrame(canvas, run, menuFrame, reduced) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (run && run.shake > 0.4 && !reduced) {
+    const kick = run.shake;
+    ctx.translate(Math.sin(frame * 1.7) * kick, Math.cos(frame * 1.3) * kick * 0.6);
+  }
 
   const theme = run
     ? run.level.theme
@@ -306,11 +378,55 @@ export function drawFrame(canvas, run, menuFrame, reduced) {
   const pilot = run.player;
   const shipAt = project(pilot.x, pilot.y, 0, w, h);
   const span = w * 0.2;
-  const roll = Math.max(-0.4, Math.min(0.4, (pilot.x - (drawFrame.shownX || 0)) * -0.015));
-  drawFrame.shownX = (drawFrame.shownX || 0) + (pilot.x - (drawFrame.shownX || 0)) * 0.18;
+  const bank = Math.max(-0.35, Math.min(0.35, -(pilot.vx || 0) * 0.04));
+  drawFrame.shownX = pilot.x;
+  let squash = 1;
+  if (pilot.rollT > 0) {
+    const elapsed = TUNE.ROLL_FRAMES - pilot.rollT;
+    const spin = (elapsed / TUNE.ROLL_FRAMES) * Math.PI * 2 * (pilot.rollDir || 1);
+    const raw = Math.cos(spin);
+    squash = Math.abs(raw) < 0.12 ? 0.12 * Math.sign(raw || 1) : raw;
+    if (!reduced) {
+      for (let ghost = 3; ghost >= 1; ghost--) {
+        const older = Math.cos(spin - ghost * 0.45);
+        const gx = shipAt.x - (pilot.rollDir || 1) * ghost * 16;
+        drawRear(ctx, run.ship.sprite, gx, shipAt.y, span, bank, 0.18, older);
+      }
+    }
+  }
   const blink = pilot.iframe > 0 && frame % 8 < 4;
-  if (!blink)
-    drawRear(ctx, run.ship.sprite, shipAt.x, shipAt.y, span, roll, run.shield > 0 ? 0.85 : 1);
+  const thrust = Math.min(1, Math.hypot(pilot.vx || 0, pilot.vy || 0) / 6);
+  if (thrust > 0.15 || pilot.rollT > 0) {
+    ctx.save();
+    ctx.globalAlpha = 0.35 + thrust * 0.5;
+    ctx.fillStyle = '#7ee7ff';
+    const flame = 10 + thrust * 16 + (pilot.rollT > 0 ? 8 : 0);
+    ctx.fillRect(shipAt.x - span * 0.12, shipAt.y + span * 0.16, 6, flame);
+    ctx.fillRect(shipAt.x + span * 0.08, shipAt.y + span * 0.16, 6, flame);
+    ctx.restore();
+  }
+  if (!blink) {
+    drawRear(
+      ctx,
+      run.ship.sprite,
+      shipAt.x,
+      shipAt.y,
+      span,
+      bank,
+      run.shield > 0 ? 0.85 : 1,
+      squash
+    );
+  }
+  if (run.perfect > 0) {
+    ctx.save();
+    ctx.strokeStyle = '#fff6b0';
+    ctx.globalAlpha = run.perfect / 12;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(shipAt.x, shipAt.y, span * 0.45, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
   if (run.shield > 0) {
     ctx.save();
     ctx.strokeStyle = '#9dffc2';
@@ -352,6 +468,22 @@ export function drawFrame(canvas, run, menuFrame, reduced) {
 
   for (const enemy of near) drawEnemy(ctx, enemy, w, h, frame);
   for (const shot of run.eShots) if (shot.z < 280) drawShot(ctx, shot, w, h, false);
+
+  for (const floater of run.floaters || []) {
+    const mark = project(
+      floater.x,
+      floater.y - (28 - floater.life) * 0.4,
+      Math.max(floater.z, 40),
+      w,
+      h
+    );
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, floater.life / 12);
+    ctx.fillStyle = floater.text === 'DODGE' ? '#fff6b0' : '#ffffff';
+    ctx.font = '10px "Press Start 2P", monospace';
+    ctx.fillText(floater.text, mark.x, mark.y);
+    ctx.restore();
+  }
 
   if (run.slow < 0.9 && !reduced) {
     ctx.save();

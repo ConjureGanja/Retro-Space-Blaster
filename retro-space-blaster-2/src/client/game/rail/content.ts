@@ -12,7 +12,16 @@
 import type { DifficultyId, Upgrades } from './tune.ts';
 
 export type EnemyKind =
-  'swarmer' | 'strafer' | 'turret' | 'tank' | 'kamikaze' | 'miner' | 'splitter' | 'elite' | 'mine';
+  | 'swarmer'
+  | 'strafer'
+  | 'turret'
+  | 'tank'
+  | 'kamikaze'
+  | 'miner'
+  | 'splitter'
+  | 'elite'
+  | 'mine'
+  | 'generator';
 
 export type PatternName = 'aimed' | 'gap-pair' | 'lanes-gap' | 'fan-gap' | 'mine' | 'none';
 
@@ -128,6 +137,19 @@ export const ARCHETYPES: Record<EnemyKind, Archetype> = {
     vz: -1.45,
     hold: 0,
     score: 30,
+    fireEvery: 0,
+    pattern: 'none',
+    shield: 0,
+    splits: false,
+  },
+  // A dish, not a gun. It paints a bubble on whoever is standing near it.
+  // Pop the dish and the bubbles go with it.
+  generator: {
+    hp: 9,
+    r: 16,
+    vz: -1.55,
+    hold: 540,
+    score: 200,
     fireEvery: 0,
     pattern: 'none',
     shield: 0,
@@ -360,6 +382,7 @@ export const LEVELS: LevelDef[] = [
       { t: 40, spawn: 'turret', x: 100, y: -18 },
       { t: 480, spawn: 'strafer', x: 0, y: 10 },
       { t: 760, spawn: 'tank', x: -30, y: 0 },
+      { t: 900, spawn: 'generator', x: 0, y: 6 },
       { t: 980, event: 'batteries', text: 'BATTERIES ONLINE', duration: 200 },
       { t: 1040, spawn: 'turret', x: -120, y: -8 },
       { t: 1040, spawn: 'turret', x: 120, y: 16 },

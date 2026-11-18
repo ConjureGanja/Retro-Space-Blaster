@@ -130,7 +130,7 @@ body.touch-ui.playing #touch-controls { display: block; }
     font-size: 11px; letter-spacing: 2px; color: rgba(180, 255, 200, 0.45);
     pointer-events: none;
 }
-#btn-fire, #btn-special {
+#btn-fire, #btn-special, #btn-roll {
     position: absolute; right: 22px; z-index: 40;
     width: 84px; height: 84px; border-radius: 50%;
     font-family: 'Press Start 2P', monospace; font-size: 11px;
@@ -140,6 +140,11 @@ body.touch-ui.playing #touch-controls { display: block; }
     touch-action: none;
 }
 #btn-fire { bottom: 22px; }
+#btn-roll {
+    bottom: 128px; right: 118px; width: 64px; height: 64px; font-size: 9px;
+    color: #1a1204; border-color: #ffe27a; background: #ffc14a;
+    box-shadow: 0 0 14px rgba(255, 193, 74, 0.45);
+}
 #btn-special {
     bottom: 118px; font-size: 8px; color: #041018;
     border-color: #9aefff; background: #3ad4f5;

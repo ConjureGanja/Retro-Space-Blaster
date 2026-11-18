@@ -27,6 +27,10 @@ export const SAVE_KEYS = [
   'introSeen',
   'hiscore',
   'reduced',
+  'scheme',
+  'autoFire',
+  'rollKey',
+  'coach',
 ] as const;
 
 /** Max serialized save size. The real save is ~1 KB; 16 KB leaves headroom. */
@@ -67,7 +71,14 @@ function validField(key: (typeof SAVE_KEYS)[number], value: unknown): boolean {
     case 'hd':
     case 'introSeen':
     case 'reduced':
+    case 'autoFire':
       return typeof value === 'boolean';
+    case 'scheme':
+      return value === 'auto' || value === 'keyboard' || value === 'mouse' || value === 'touch';
+    case 'rollKey':
+      return value === 'q' || value === 'e' || value === 'r';
+    case 'coach':
+      return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 4;
     case 'volMusic':
     case 'volSfx':
       return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;

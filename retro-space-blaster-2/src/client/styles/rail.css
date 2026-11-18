@@ -315,3 +315,40 @@ body.reduced .vignette {
     font-size: 13px;
   }
 }
+
+#sb2 .coach {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 16%;
+  text-align: center;
+  color: #fff6c2;
+  font-size: 11px;
+  text-shadow: 0 0 10px #000;
+}
+
+#sb2 .bestiary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  max-width: 980px;
+}
+
+#sb2 .bestiary figure {
+  margin: 0;
+  width: 92px;
+  text-align: center;
+}
+
+#sb2 .bestiary img {
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+  background: #0c1424;
+}
+
+#sb2 .bestiary figcaption {
+  font-size: 7px;
+  color: #b7c4c0;
+}
