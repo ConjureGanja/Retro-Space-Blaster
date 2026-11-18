@@ -105,7 +105,7 @@ const FOE_NAMES = [
     'nebula', 'belt', 'station', 'ice', 'hive',
 ];
 for (const name of FOE_NAMES) {
-    for (const frame of ['idle', 'wind', 'hit']) {
+    for (const frame of ['idle', 'wind', 'hit', 'dead']) {
         SPRITE_FILES[`foe-${name}-${frame}`] = `/assets/sprites/foes/${name}-${frame}.webp`;
     }
 }

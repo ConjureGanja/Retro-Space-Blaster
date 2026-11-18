@@ -337,13 +337,13 @@ body.reduced .vignette {
 
 #sb2 .bestiary figure {
   margin: 0;
-  width: 92px;
+  width: 110px;
   text-align: center;
 }
 
 #sb2 .bestiary img {
-  width: 64px;
-  height: 64px;
+  width: 96px;
+  height: 96px;
   image-rendering: pixelated;
   background: #0c1424;
 }

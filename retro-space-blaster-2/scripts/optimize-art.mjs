@@ -119,7 +119,12 @@ async function main() {
     // Analogy: photocopying graph paper on the "crisp" setting, not "photo".
     let encodePath = src;
     const hiRes = src.replace(/\.png$/i, '@2x.png');
-    if (file.startsWith('rear/') && file.toLowerCase().endsWith('.png')) {
+    // Rear ships and foe stamps ship a nearest-neighbor @2x twin so a
+    // HiDPI glass gets real squares. The 1x file stays the master you edit.
+    if (
+      (file.startsWith('rear/') || file.startsWith('foes/')) &&
+      file.toLowerCase().endsWith('.png')
+    ) {
       if ((await mtime(hiRes)) > 0) encodePath = hiRes;
     }
 

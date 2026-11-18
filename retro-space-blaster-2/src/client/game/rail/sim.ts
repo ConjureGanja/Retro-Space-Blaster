@@ -27,6 +27,7 @@ import {
 } from './content.ts';
 import type { Threat } from './dodge.ts';
 import { getShip, type ShipDef } from './ships.ts';
+import { assistOrigin, gunOffsets } from './reticle.ts';
 import {
   DIFFICULTIES,
   EMPTY_UPGRADES,
@@ -162,6 +163,12 @@ export type Run = {
   perfect: number;
   floaters: Floater[];
   did: { move: boolean; fire: boolean; roll: boolean; special: boolean };
+  /** Who the guns are resting on, and how full the lock ring is (0..1). */
+  lockId: number;
+  lock: number;
+  aimAssist: boolean;
+  pings: { x: number; y: number; z: number; kind: 'hit' | 'kill'; life: number }[];
+  corpses: { art: string; x: number; y: number; z: number; life: number }[];
   energy: number;
   slow: number;
   shield: number;
@@ -329,6 +336,8 @@ function killEnemy(state: Run, enemy: Enemy): void {
   if (!enemy.alive) return;
   enemy.alive = false;
   enemy.pending = [];
+  state.corpses.push({ art: enemy.art, x: enemy.x, y: enemy.y, z: enemy.z, life: 12 });
+  state.pings.push({ x: enemy.x, y: enemy.y, z: enemy.z, kind: 'kill', life: 16 });
   award(state, enemy.boss ? 'boss' : 'kills', enemy.score);
   state.sfx('explode');
   if (enemy.splits) {
@@ -371,6 +380,7 @@ function damageEnemy(state: Run, enemy: Enemy, amount: number, shotX = enemy.x):
   }
   enemy.hp -= amount;
   pushFloater(state, enemy.x, enemy.y, enemy.z, String(Math.max(1, Math.round(amount))));
+  state.pings.push({ x: enemy.x, y: enemy.y, z: enemy.z, kind: 'hit', life: 8 });
   if (enemy.boss && state.hitStop === 0) {
     // One frame of hold on a boss hit. Chaining it on every bolt would turn
     // the fight into slow motion, which is the chrono field's job.
@@ -712,6 +722,35 @@ function updateSpecial(state: Run, input: Input): void {
   }
 }
 
+/** The ship the guns are already almost on. Far targets do not get a magnet. */
+function gunLineTarget(state: Run): Enemy | null {
+  let best: Enemy | null = null;
+  let bestDist = 28;
+  for (const enemy of state.enemies) {
+    if (!enemy.alive || enemy.z < TUNE.Z_MUZZLE) continue;
+    const dist = Math.hypot(enemy.x - state.player.x, enemy.y - state.player.y);
+    if (dist < bestDist) {
+      best = enemy;
+      bestDist = dist;
+    }
+  }
+  return best;
+}
+
+function refreshLock(state: Run): void {
+  const target = gunLineTarget(state);
+  if (!target) {
+    state.lockId = 0;
+    state.lock = Math.max(0, state.lock - 0.04);
+    return;
+  }
+  if (target.id === state.lockId) state.lock = Math.min(1, state.lock + 0.025);
+  else {
+    state.lockId = target.id;
+    state.lock = 0.08;
+  }
+}
+
 function playerFire(state: Run, input: Input): void {
   const pilot = state.player;
   if (pilot.fireCd > 0) pilot.fireCd -= 1;
@@ -720,13 +759,14 @@ function playerFire(state: Run, input: Input): void {
   if (state.buff.rapid > 0) delay = Math.max(8, Math.round(delay * 0.62));
   pilot.fireCd = delay;
   const spread = state.upgrades.spread + (state.buff.spread > 0 ? 1 : 0);
-  const offsets = [0];
-  if (spread >= 1) offsets.push(-18, 18);
-  if (spread >= 2) offsets.push(-34, 34);
-  for (const ox of offsets) {
+  const target = state.aimAssist ? gunLineTarget(state) : null;
+  const origin = assistOrigin(pilot.x, pilot.y, target, state.aimAssist);
+  // The crosshair uses this same origin and these same offsets. If you
+  // change a barrel here, change reticle.ts too. They are one promise.
+  for (const ox of gunOffsets(spread)) {
     state.pShots.push({
-      x: clamp(pilot.x + ox, -TUNE.PLAY_X, TUNE.PLAY_X),
-      y: pilot.y,
+      x: clamp(origin.x + ox, -TUNE.PLAY_X, TUNE.PLAY_X),
+      y: origin.y,
       z: TUNE.Z_MUZZLE,
       vz: 22,
       r: 6,
@@ -954,6 +994,11 @@ export function createRun(opts: RunOpts = {}): Run {
     perfect: 0,
     floaters: [],
     did: { move: false, fire: false, roll: false, special: false },
+    lockId: 0,
+    lock: 0,
+    aimAssist: false,
+    pings: [],
+    corpses: [],
     energy: ship.ability.mode === 'drain' ? ship.ability.max : 0,
     slow: 1,
     shield: 0,
@@ -1007,6 +1052,10 @@ export function step(state: Run, input: Input): void {
   if (state.perfect > 0) state.perfect -= 1;
   for (const floater of state.floaters) floater.life -= 1;
   state.floaters = state.floaters.filter((floater) => floater.life > 0);
+  for (const ping of state.pings) ping.life -= 1;
+  state.pings = state.pings.filter((ping) => ping.life > 0);
+  for (const corpse of state.corpses) corpse.life -= 1;
+  state.corpses = state.corpses.filter((corpse) => corpse.life > 0);
   if (state.bannerT > 0) state.bannerT -= 1;
   if (state.muzzle > 0) state.muzzle -= 1;
   if (state.buff.rapid > 0) state.buff.rapid -= 1;
@@ -1026,7 +1075,17 @@ export function step(state: Run, input: Input): void {
   }
   playerFire(state, input);
 
-  for (const shot of state.pShots) shot.z += shot.vz;
+  refreshLock(state);
+  const locked = state.enemies.find((enemy) => enemy.alive && enemy.id === state.lockId) ?? null;
+  for (const shot of state.pShots) {
+    shot.z += shot.vz;
+    // A full lock with aim-assist on bends the bolt a little toward the
+    // target. It is a nudge, not a seeker. The bolt still has to be close.
+    if (state.aimAssist && state.lock >= 1 && locked) {
+      shot.x += clamp(locked.x - shot.x, -0.35, 0.35);
+      shot.y += clamp(locked.y - shot.y, -0.35, 0.35);
+    }
+  }
   for (const shot of state.eShots) shot.z += shot.vz * slow;
 
   collide(state);

@@ -32,6 +32,10 @@ let reduced = false;
 let scheme = 'auto';
 let autoFire = false;
 let rollKey = 'q';
+let xhairOn = true;
+let xstyle = 'cross';
+let xcolor = 'cyan';
+let assist = false;
 let demoRoll = false;
 let demoSent = false;
 let diffId = 'pilot';
@@ -189,6 +193,14 @@ function paintSettings() {
   if (schemeBtn) schemeBtn.textContent = `CONTROLS  ${scheme.toUpperCase()}`;
   if (fireBtn) fireBtn.textContent = `AUTO-FIRE  ${autoFire ? 'ON' : 'OFF'}`;
   if (rollBtn) rollBtn.textContent = `ROLL KEY  ${rollKey.toUpperCase()}`;
+  const xhairBtn = root.querySelector('#sb2-xhair');
+  const styleBtn = root.querySelector('#sb2-xstyle');
+  const colorBtn = root.querySelector('#sb2-xcolor');
+  const assistBtn = root.querySelector('#sb2-assist');
+  if (xhairBtn) xhairBtn.textContent = `CROSSHAIR  ${xhairOn ? 'ON' : 'OFF'}`;
+  if (styleBtn) styleBtn.textContent = `RETICLE  ${xstyle.toUpperCase()}`;
+  if (colorBtn) colorBtn.textContent = `COLOR  ${xcolor.toUpperCase()}`;
+  if (assistBtn) assistBtn.textContent = `AIM ASSIST  ${assist ? 'ON' : 'OFF'}`;
   setControlOptions({ scheme, autoFire, rollKey });
 }
 
@@ -492,7 +504,26 @@ function build() {
   fireBtn.id = 'sb2-autofire';
   const rollBtn = button('ROLL KEY  Q', 'rollkey');
   rollBtn.id = 'sb2-rollkey';
-  form.append(music, sfx, reducedLabel, schemeBtn, fireBtn, rollBtn);
+  const xhairBtn = button('CROSSHAIR  ON', 'xhair');
+  xhairBtn.id = 'sb2-xhair';
+  const styleBtn = button('RETICLE  CROSS', 'xstyle');
+  styleBtn.id = 'sb2-xstyle';
+  const colorBtn = button('COLOR  CYAN', 'xcolor');
+  colorBtn.id = 'sb2-xcolor';
+  const assistBtn = button('AIM ASSIST  OFF', 'assist');
+  assistBtn.id = 'sb2-assist';
+  form.append(
+    music,
+    sfx,
+    reducedLabel,
+    schemeBtn,
+    fireBtn,
+    rollBtn,
+    xhairBtn,
+    styleBtn,
+    colorBtn,
+    assistBtn
+  );
   form.append(
     el(
       'p',
@@ -575,13 +606,13 @@ function build() {
     'hive',
   ];
   for (const name of stamps) {
-    for (const frame of ['idle', 'wind', 'hit']) {
+    for (const frame of ['idle', 'wind', 'hit', 'dead']) {
       const fig = document.createElement('figure');
       const img = document.createElement('img');
       img.src = `/assets/sprites/foes/${name}-${frame}.webp`;
       img.alt = `${name} ${frame}`;
-      img.width = 64;
-      img.height = 64;
+      img.width = 96;
+      img.height = 96;
       fig.append(img, el('figcaption', '', `${name} ${frame}`));
       grid.append(fig);
     }
@@ -617,6 +648,24 @@ function build() {
       const order = ['q', 'e', 'r'];
       rollKey = order[(order.indexOf(rollKey) + 1) % order.length];
       store.set('rollKey', rollKey);
+      paintSettings();
+    } else if (kind === 'xhair') {
+      xhairOn = !xhairOn;
+      store.set('xhair', xhairOn);
+      paintSettings();
+    } else if (kind === 'xstyle') {
+      const order = ['cross', 'chevron', 'dot'];
+      xstyle = order[(Math.max(0, order.indexOf(xstyle)) + 1) % order.length];
+      store.set('xstyle', xstyle);
+      paintSettings();
+    } else if (kind === 'xcolor') {
+      const order = ['cyan', 'green', 'amber', 'white', 'magenta'];
+      xcolor = order[(Math.max(0, order.indexOf(xcolor)) + 1) % order.length];
+      store.set('xcolor', xcolor);
+      paintSettings();
+    } else if (kind === 'assist') {
+      assist = !assist;
+      store.set('assist', assist);
       paintSettings();
     } else if (kind === 'diff') {
       const index = Math.max(0, DIFF_ORDER.indexOf(diffId));
@@ -674,6 +723,21 @@ function loadSettings() {
   autoFire = store.get('autoFire', false) === true;
   const savedRoll = store.get('rollKey', 'q');
   if (savedRoll === 'q' || savedRoll === 'e' || savedRoll === 'r') rollKey = savedRoll;
+  if (store.get('xhair', true) === false) xhairOn = false;
+  const savedStyle = store.get('xstyle', 'cross');
+  if (savedStyle === 'cross' || savedStyle === 'chevron' || savedStyle === 'dot')
+    xstyle = savedStyle;
+  const savedColor = store.get('xcolor', 'cyan');
+  if (
+    savedColor === 'cyan' ||
+    savedColor === 'green' ||
+    savedColor === 'amber' ||
+    savedColor === 'white' ||
+    savedColor === 'magenta'
+  ) {
+    xcolor = savedColor;
+  }
+  assist = store.get('assist', false) === true;
   setControlOptions({ scheme, autoFire, rollKey });
   document.body.classList.toggle('reduced', reduced);
   applyTheme(
@@ -767,6 +831,8 @@ export function tickShell(input) {
     demoSent = true;
   }
   setControlOptions({ scheme, autoFire, rollKey });
+  run.aimAssist = assist;
+  run.xhair = { on: xhairOn, style: xstyle, color: xcolor };
   step(run, simInput);
   if (pauseAt > 0 && run.frame >= pauseAt) {
     pauseAt = 0;

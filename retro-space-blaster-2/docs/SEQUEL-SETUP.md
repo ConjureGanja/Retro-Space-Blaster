@@ -94,6 +94,10 @@ Only the device you used last moves the ship. A mouse that is sitting still does
 
 The roll is a sideways burst plus a full spin of the rear sprite. The middle of the spin cannot be hit. It then has to recharge. A shot that would have landed during the spin is a perfect dodge: a flash, a sound, and a little special meter back. Holding a key does not roll. The second press has to arrive within about a quarter of a second.
 
+The crosshair sits on the play plane at the blaster's x and y. Shots do not drift sideways, so that point is where they still are when they reach the target's depth. Spread cannons add a small box for each side barrel. It lags a little as paint, opens while you fire, and turns red with a lock ring when an enemy is already under the guns. Aim assist, off unless you turn it on, nudges the barrels a few units toward that enemy. The mark moves with the barrels. Settings: crosshair on or off, style (cross, chevron, dot), color, and aim assist.
+
+Foe masters are 128×128 in `art/sprites/foes/`, with a nearest-neighbor `@2x` twin. `node scripts/paint-foes.mjs` redraws them. Idle, wind-up, hit, and dead. Then `npm run art`. Hit circles are still `enemy.r`. The picture got bigger. The collision did not.
+
 Landscape only on a phone. A tall phone gets ROTATE and a running fight pauses.
 
 ## Feel, short version

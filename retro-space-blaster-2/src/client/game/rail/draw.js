@@ -12,6 +12,7 @@
 
 import { safeLane } from './content.ts';
 import { project } from './project.ts';
+import { assistOrigin, reticleMarks } from './reticle.ts';
 import { Sprites } from '../sprites.js';
 import { TUNE } from './tune.ts';
 
@@ -167,7 +168,12 @@ function drawEnemy(ctx, enemy, w, h, frame) {
     const img = Sprites.get(key);
     const iw = img.naturalWidth || img.width || 32;
     const ih = img.naturalHeight || img.height || 32;
-    const size = radius * 2.4 * intro;
+    // Big enough that the 128px stamp's panels show, small enough that the
+    // picture does not become the hitbox. Collision still uses enemy.r.
+    const size = Math.min(
+      w * (enemy.boss ? 0.26 : 0.16),
+      radius * (enemy.boss ? 3.6 : 4.8) * intro
+    );
     const scale = size / Math.max(iw, ih);
     ctx.drawImage(img, (-iw * scale) / 2, (-ih * scale) / 2, iw * scale, ih * scale);
   } else {
@@ -178,7 +184,7 @@ function drawEnemy(ctx, enemy, w, h, frame) {
     ctx.stroke();
   }
   if (enemy.flash > 0) {
-    ctx.globalAlpha = 0.45;
+    ctx.globalAlpha = 0.22;
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
     ctx.arc(0, 0, radius, 0, Math.PI * 2);
@@ -259,6 +265,144 @@ function drawShot(ctx, shot, w, h, friendly) {
   ctx.shadowColor = ctx.fillStyle;
   ctx.shadowBlur = friendly ? 8 : 12;
   ctx.fillRect(p.x - 1.5, p.y - len / 2, 3, Math.max(4, len));
+  ctx.restore();
+}
+
+const XCOLOR = {
+  cyan: '#7ef6ff',
+  green: '#7dffb2',
+  amber: '#ffe27a',
+  white: '#f4fbff',
+  magenta: '#ff7ad9',
+};
+let crossSmooth = null;
+
+/**
+ * The crosshair is drawn at the bullet's x,y on the target's depth.
+ * The lag is only paint. The mark the tests check is the world point.
+ */
+function drawCrosshair(ctx, run, w, h, frame, reduced) {
+  const prefs = run.xhair || { on: true, style: 'cross', color: 'cyan' };
+  if (!prefs.on) return;
+  const pilot = run.player;
+  const spread = (run.upgrades?.spread || 0) + (run.buff?.spread > 0 ? 1 : 0);
+  const target =
+    (run.enemies || []).find((enemy) => enemy.alive && enemy.id === run.lockId) || null;
+  const origin = assistOrigin(
+    pilot.x,
+    pilot.y,
+    run.aimAssist && target ? target : null,
+    !!run.aimAssist
+  );
+  const marks = reticleMarks(origin.x, origin.y, spread);
+  const depth = target && target.z > 180 ? target.z : 560;
+  const primary = marks.find((mark) => mark.primary) || marks[0];
+  if (!primary) return;
+  const at = project(primary.x, primary.y, depth, w, h);
+  if (!crossSmooth) crossSmooth = { x: at.x, y: at.y };
+  crossSmooth.x += (at.x - crossSmooth.x) * 0.38;
+  crossSmooth.y += (at.y - crossSmooth.y) * 0.38;
+  const color = XCOLOR[prefs.color] || XCOLOR.cyan;
+  const locked = !!(target && run.lock > 0.12);
+  const hot = locked ? '#ff5d6c' : color;
+  const bloom = (run.muzzle > 0 ? 1.45 : 1) * (locked ? 0.85 : 1);
+  const gap = 7 * bloom;
+  const arm = 11 * bloom;
+  ctx.save();
+  ctx.translate(crossSmooth.x, crossSmooth.y);
+  ctx.strokeStyle = hot;
+  ctx.fillStyle = hot;
+  ctx.lineWidth = 2;
+  if (!reduced) {
+    ctx.shadowColor = hot;
+    ctx.shadowBlur = 10;
+  }
+  if (prefs.style === 'dot') {
+    ctx.beginPath();
+    ctx.arc(0, 0, 3 * bloom, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(0, 0, 11 * bloom, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (prefs.style === 'chevron') {
+    const s = 9 * bloom;
+    ctx.beginPath();
+    ctx.moveTo(-s, -s);
+    ctx.lineTo(-s * 0.25, -s);
+    ctx.moveTo(-s, -s);
+    ctx.lineTo(-s, -s * 0.25);
+    ctx.moveTo(s, -s);
+    ctx.lineTo(s * 0.25, -s);
+    ctx.moveTo(s, -s);
+    ctx.lineTo(s, -s * 0.25);
+    ctx.moveTo(-s, s);
+    ctx.lineTo(-s * 0.25, s);
+    ctx.moveTo(-s, s);
+    ctx.lineTo(-s, s * 0.25);
+    ctx.moveTo(s, s);
+    ctx.lineTo(s * 0.25, s);
+    ctx.moveTo(s, s);
+    ctx.lineTo(s, s * 0.25);
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(-gap - arm, 0);
+    ctx.lineTo(-gap, 0);
+    ctx.moveTo(gap, 0);
+    ctx.lineTo(gap + arm, 0);
+    ctx.moveTo(0, -gap - arm);
+    ctx.lineTo(0, -gap);
+    ctx.moveTo(0, gap);
+    ctx.lineTo(0, gap + arm);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  for (const mark of marks) {
+    if (mark.primary) continue;
+    const side = project(mark.x, mark.y, depth, w, h);
+    ctx.save();
+    ctx.strokeStyle = hot;
+    ctx.globalAlpha = 0.9;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(side.x - 4, side.y - 4, 8, 8);
+    ctx.restore();
+  }
+
+  if (!target || !locked) return;
+  const body = project(target.x, target.y, target.z, w, h);
+  const radius = 16 + (1 - run.lock) * 14;
+  ctx.save();
+  ctx.strokeStyle = hot;
+  ctx.fillStyle = hot;
+  ctx.lineWidth = 2;
+  if (!reduced) {
+    ctx.shadowColor = hot;
+    ctx.shadowBlur = 8;
+  }
+  ctx.beginPath();
+  ctx.arc(
+    body.x,
+    body.y,
+    radius,
+    -Math.PI / 2,
+    -Math.PI / 2 + Math.PI * 2 * Math.max(0.05, run.lock)
+  );
+  ctx.stroke();
+  ctx.font = '9px "Press Start 2P", monospace';
+  const label =
+    target.bubble > 0
+      ? 'SHIELD'
+      : target.reflectT > 0
+        ? 'REFLECT'
+        : `${Math.max(0, Math.ceil(target.hp))}`;
+  ctx.fillText(label, body.x + radius + 8, body.y + 3);
+  if (target.bubble > 0 || (target.kind === 'tank' && target.shield > 0)) {
+    ctx.beginPath();
+    ctx.arc(body.x, body.y - radius - 10, 5, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  if (target.reflectT > 0) ctx.fillText('!', body.x - 3, body.y - radius - 8);
   ctx.restore();
 }
 
@@ -468,6 +612,40 @@ export function drawFrame(canvas, run, menuFrame, reduced) {
 
   for (const enemy of near) drawEnemy(ctx, enemy, w, h, frame);
   for (const shot of run.eShots) if (shot.z < 280) drawShot(ctx, shot, w, h, false);
+
+  for (const corpse of run.corpses || []) {
+    const mark = project(corpse.x, corpse.y, corpse.z, w, h);
+    const key = `foe-${corpse.art}-dead`;
+    if (!Sprites.isReady(key)) continue;
+    const img = Sprites.get(key);
+    const size = Math.min(w * 0.14, 72) * (corpse.life / 12);
+    ctx.save();
+    ctx.globalAlpha = corpse.life / 14;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, mark.x - size / 2, mark.y - size / 2, size, size);
+    ctx.restore();
+  }
+  for (const ping of run.pings || []) {
+    const mark = project(ping.x, ping.y, ping.z, w, h);
+    ctx.save();
+    ctx.strokeStyle = ping.kind === 'kill' ? '#fff6b0' : '#ffffff';
+    ctx.globalAlpha = ping.life / 10;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    if (ping.kind === 'kill') {
+      ctx.moveTo(mark.x - 8, mark.y - 8);
+      ctx.lineTo(mark.x + 8, mark.y + 8);
+      ctx.moveTo(mark.x + 8, mark.y - 8);
+      ctx.lineTo(mark.x - 8, mark.y + 8);
+    } else {
+      ctx.moveTo(mark.x - 6, mark.y);
+      ctx.lineTo(mark.x - 2, mark.y + 4);
+      ctx.lineTo(mark.x + 7, mark.y - 5);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+  drawCrosshair(ctx, run, w, h, frame, reduced);
 
   for (const floater of run.floaters || []) {
     const mark = project(

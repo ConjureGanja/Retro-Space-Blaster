@@ -31,6 +31,10 @@ export const SAVE_KEYS = [
   'autoFire',
   'rollKey',
   'coach',
+  'xhair',
+  'xstyle',
+  'xcolor',
+  'assist',
 ] as const;
 
 /** Max serialized save size. The real save is ~1 KB; 16 KB leaves headroom. */
@@ -72,7 +76,19 @@ function validField(key: (typeof SAVE_KEYS)[number], value: unknown): boolean {
     case 'introSeen':
     case 'reduced':
     case 'autoFire':
+    case 'xhair':
+    case 'assist':
       return typeof value === 'boolean';
+    case 'xstyle':
+      return value === 'cross' || value === 'chevron' || value === 'dot';
+    case 'xcolor':
+      return (
+        value === 'cyan' ||
+        value === 'green' ||
+        value === 'amber' ||
+        value === 'white' ||
+        value === 'magenta'
+      );
     case 'scheme':
       return value === 'auto' || value === 'keyboard' || value === 'mouse' || value === 'touch';
     case 'rollKey':
