@@ -418,6 +418,7 @@ function drawFloatTexts() {
 function drawReticle() {
     const ship = Game.entities.ship;
     if (!ship || ship.dead || ship.explodeTime) return;
+    if (input.mode === 'touch') return; // no cursor to aim with on touch screens
 
     const mx = input.mouseX, my = input.mouseY;
     const dist = Math.hypot(mx - ship.x, my - ship.y);
