@@ -1,0 +1,7 @@
+<!-- POWER-UP: TRIPLE SHOT / WEAPON UPGRADE -->
+<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" id="powerup-weapon">
+  <circle cx="25" cy="25" r="22" fill="#112244" stroke="#00ffcc" stroke-width="5"/>
+  <polygon points="15,18 25,8 35,18" fill="#ff0088"/>
+  <rect x="21" y="18" width="8" height="18" fill="#00ffff" rx="2"/>
+  <circle cx="25" cy="32" r="6" fill="#ffff00"/>
+</svg>

@@ -1,0 +1,6 @@
+<!-- POWER-UP: SPEED BOOST -->
+<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" id="powerup-speed">
+  <circle cx="25" cy="25" r="22" fill="#112244" stroke="#ffdd00" stroke-width="5"/>
+  <!-- Lightning bolt -->
+  <polygon points="30,15 20,25 28,25 20,37 30,27 22,27" fill="#ffff66"/>
+</svg>
