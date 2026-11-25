@@ -431,7 +431,10 @@ export function drawFrame(canvas, run, menuFrame, reduced) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (run && run.shake > 0.4 && !reduced) {
     const kick = run.shake;
-    ctx.translate(Math.sin(frame * 1.7) * kick, Math.cos(frame * 1.3) * kick * 0.6);
+    // Why run.frame: the local `frame` const is declared further down, so reading it
+    // here hit the temporal dead zone and threw, freezing the render loop on any hit.
+    // Analogy: reading the clock on a wall that has not been built yet.
+    ctx.translate(Math.sin(run.frame * 1.7) * kick, Math.cos(run.frame * 1.3) * kick * 0.6);
   }
 
   const theme = run
