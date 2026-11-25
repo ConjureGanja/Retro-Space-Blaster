@@ -1,6 +1,7 @@
 /**
- * Pointer input. Mouse drives the ship; left click fires, right click time-shifts.
- * Touch is mapped onto the same fields (1 finger = move/fire, 2 fingers = time shift).
+ * Pointer input. Mouse drives the ship; left click fires, right click uses the
+ * ship's special. Touch devices use the on-screen thumbstick + buttons in
+ * touch.js, which write into the same object (stickX/stickY, clickLeft/Right).
  */
 
 import { CONSTANTS } from './config.js';
@@ -9,7 +10,12 @@ export const input = {
     mouseX: CONSTANTS.GAME_WIDTH / 2,
     mouseY: CONSTANTS.GAME_HEIGHT / 2,
     clickLeft: false,
-    clickRight: false
+    clickRight: false,
+    // 'mouse' = ship chases the cursor; 'touch' = ship flies by thumbstick.
+    mode: 'mouse',
+    // Thumbstick deflection, -1..1 on each axis (0,0 = centered / released).
+    stickX: 0,
+    stickY: 0
 };
 
 export function initInput(canvas) {
@@ -32,24 +38,6 @@ export function initInput(canvas) {
     const releaseAll = () => { input.clickLeft = false; input.clickRight = false; };
     window.addEventListener('blur', releaseAll);
     document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); });
-    canvas.addEventListener('touchcancel', releaseAll);
-
-    // Touch support mimicking the mouse
-    canvas.addEventListener('touchstart', e => {
-        e.preventDefault();
-        input.mouseX = e.touches[0].clientX; input.mouseY = e.touches[0].clientY;
-        if (e.touches.length === 1) input.clickLeft = true;
-        if (e.touches.length >= 2) input.clickRight = true; // Two fingers for Time Shift
-    }, { passive: false });
-
-    canvas.addEventListener('touchmove', e => {
-        e.preventDefault();
-        input.mouseX = e.touches[0].clientX; input.mouseY = e.touches[0].clientY;
-    }, { passive: false });
-
-    canvas.addEventListener('touchend', e => {
-        e.preventDefault();
-        if (e.touches.length === 0) { input.clickLeft = false; input.clickRight = false; }
-        else if (e.touches.length === 1) { input.clickRight = false; }
-    }, { passive: false });
+    // Touch input lives in touch.js (thumbstick + buttons), so the canvas
+    // only needs to handle the mouse.
 }

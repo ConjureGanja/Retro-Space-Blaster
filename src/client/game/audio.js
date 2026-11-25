@@ -88,6 +88,13 @@ export const Sound = {
         if (t === 'pickup')      { o.type='sine'; o.frequency.setValueAtTime(880, now); o.frequency.exponentialRampToValueAtTime(1200, now+0.06); g.gain.setValueAtTime(0.04,now); g.gain.linearRampToValueAtTime(0,now+0.08); o.start(now); o.stop(now+0.08); }
         if (t === 'powerup')     { o.type='square'; o.frequency.setValueAtTime(523, now); o.frequency.setValueAtTime(784, now+0.08); o.frequency.setValueAtTime(1047, now+0.16); g.gain.setValueAtTime(0.08,now); g.gain.linearRampToValueAtTime(0,now+0.3); o.start(now); o.stop(now+0.3); }
 
+        // Menu feedback: a soft tick on hover/focus and a bright two-step chirp
+        // on select. Quiet on purpose — like the click of a good keyboard, you
+        // should feel it more than hear it.
+        if (t === 'uiHover')     { o.type='triangle'; o.frequency.setValueAtTime(1400, now); g.gain.setValueAtTime(0.025,now); g.gain.exponentialRampToValueAtTime(0.001,now+0.04); o.start(now); o.stop(now+0.04); }
+        if (t === 'uiSelect')    { o.type='square'; o.frequency.setValueAtTime(660, now); o.frequency.setValueAtTime(990, now+0.05); g.gain.setValueAtTime(0.045,now); g.gain.exponentialRampToValueAtTime(0.001,now+0.12); o.start(now); o.stop(now+0.12); }
+        if (t === 'uiSwipe')     { o.type='sine'; o.frequency.setValueAtTime(300, now); o.frequency.exponentialRampToValueAtTime(900, now+0.09); g.gain.setValueAtTime(0.05,now); g.gain.linearRampToValueAtTime(0,now+0.1); o.start(now); o.stop(now+0.1); }
+
         // Score-tally ding (level complete screen)
         if (t === 'ding')        { o.type='sine'; o.frequency.setValueAtTime(1318, now); g.gain.setValueAtTime(0.09,now); g.gain.exponentialRampToValueAtTime(0.001,now+0.12); o.start(now); o.stop(now+0.12); }
 

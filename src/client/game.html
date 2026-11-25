@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Retro Space Blaster</title>
     <!-- Styles + the pixel font are imported by game/main.js so Vite bundles them. -->
 </head>
@@ -64,45 +64,65 @@
             <div id="splash-copyright"></div>
         </div>
 
-        <!-- MAIN MENU / HANGAR -->
+        <!-- MAIN MENU / HANGAR
+             Two columns: title + actions on the left, ship select on the right.
+             Collapses to one column on narrow windows (see main.css). -->
         <div id="menu-main" class="menu-screen">
             <img class="menu-decor decor-saucer" src="/assets/sprites/enemy-saucer.webp" alt="">
             <img class="menu-decor decor-swarmer" src="/assets/sprites/enemy-swarmer.webp" alt="">
             <img class="menu-decor decor-sniper" src="/assets/sprites/enemy-sniper.webp" alt="">
-            <h1>RETRO SPACE BLASTER</h1>
-            <div id="menu-hiscore">HI-SCORE: 0</div>
 
-            <div id="ship-selector">
-                <h3 class="hangar-label">SELECT YOUR SHIP</h3>
-                <div class="hangar-row">
-                    <button id="btn-ship-prev" class="menu-btn hangar-arrow">&lt;</button>
-                    <div class="hangar-card">
-                        <img id="ship-preview" src="/assets/sprites/playership1.webp" alt="ship preview" />
-                        <div id="ship-name">FALCON</div>
-                        <div id="ship-role">Interceptor</div>
-                        <div class="hangar-stats">
-                            <div class="stat-line"><span>SPD</span><span id="stat-spd" class="stat-pips"></span></div>
-                            <div class="stat-line"><span>PWR</span><span id="stat-pow" class="stat-pips"></span></div>
-                            <div class="stat-line"><span>ROF</span><span id="stat-rof" class="stat-pips"></span></div>
+            <div class="menu-layout">
+                <div class="menu-col menu-col-actions">
+                    <h1 class="menu-title"><span>RETRO SPACE</span><span class="menu-title-accent">BLASTER</span></h1>
+                    <div id="menu-hiscore">HI-SCORE: 0</div>
+
+                    <div class="btn-stack">
+                        <button type="button" id="btn-start" class="menu-btn primary">LAUNCH CAMPAIGN</button>
+                        <button type="button" id="btn-difficulty" class="menu-btn">DIFFICULTY: PILOT</button>
+                        <button type="button" id="btn-settings" class="menu-btn">SETTINGS</button>
+                    </div>
+
+                    <div class="controls-info only-mouse">
+                        <div><span class="key-btn">MOUSE</span> Steer</div>
+                        <div><span class="key-btn">LEFT CLICK</span> Fire</div>
+                        <div><span class="key-btn">RIGHT CLICK</span> Special</div>
+                        <div><span class="key-btn">ESC</span> Pause</div>
+                    </div>
+                    <div class="controls-info only-touch">
+                        <div><span class="key-btn">LEFT THUMB</span> Steer</div>
+                        <div><span class="key-btn">FIRE</span> Hold to shoot</div>
+                        <div><span class="key-btn">SPECIAL</span> Ship ability</div>
+                    </div>
+                </div>
+
+                <div id="ship-selector" class="menu-col panel">
+                    <h3 class="hangar-label">SELECT YOUR SHIP</h3>
+                    <div class="hangar-row">
+                        <button type="button" id="btn-ship-prev" class="menu-btn hangar-arrow" aria-label="Previous ship">&lt;</button>
+                        <div class="hangar-card">
+                            <div class="ship-stage">
+                                <img id="ship-preview" src="/assets/sprites/playership1.webp" alt="Selected ship" />
+                            </div>
+                            <div id="ship-name">FALCON</div>
+                            <div id="ship-role">Interceptor</div>
                         </div>
+                        <button type="button" id="btn-ship-next" class="menu-btn hangar-arrow" aria-label="Next ship">&gt;</button>
+                    </div>
+                    <div id="ship-dots" class="ship-dots" aria-hidden="true"></div>
+                    <div class="hangar-stats">
+                        <div class="stat-line"><span>SPD</span><span class="stat-bar"><i id="stat-spd"></i></span></div>
+                        <div class="stat-line"><span>PWR</span><span class="stat-bar"><i id="stat-pow"></i></span></div>
+                        <div class="stat-line"><span>ROF</span><span class="stat-bar"><i id="stat-rof"></i></span></div>
+                    </div>
+                    <div class="ship-ability">
                         <div id="ship-ability-name">CHRONO FIELD</div>
                         <div id="ship-ability-desc">Hold to slow time.</div>
                     </div>
-                    <button id="btn-ship-next" class="menu-btn hangar-arrow">&gt;</button>
+                    <label class="hd-toggle">
+                        <input type="checkbox" id="chk-hd-sprites"> HD sprites
+                    </label>
                 </div>
-                <label class="hd-toggle">
-                    <input type="checkbox" id="chk-hd-sprites"> Use HD Sprites
-                </label>
-            </div>
-
-            <button id="btn-start" class="menu-btn">LAUNCH CAMPAIGN</button>
-            <button id="btn-difficulty" class="menu-btn" style="margin-top: 0;">DIFFICULTY: PILOT</button>
-            <button id="btn-settings" class="menu-btn" style="margin-top: 0;">SETTINGS</button>
-            <div class="controls-info">
-                MOUSE = Move Ship<br>
-                <span class="key-btn">LEFT CLICK</span> = Fire Weapons<br>
-                <span class="key-btn">RIGHT CLICK</span> = Special Ability<br>
-                <span class="key-btn">ESC</span> = Pause
             </div>
         </div>
 
@@ -129,14 +149,14 @@
                 </div>
             </div>
 
-            <button id="btn-settings-back" class="menu-btn">BACK</button>
+            <button type="button" id="btn-settings-back" class="menu-btn">BACK</button>
         </div>
 
         <!-- DIFFICULTY SELECT -->
         <div id="menu-difficulty" class="menu-screen">
             <h1>CHOOSE YOUR CONTRACT</h1>
             <div id="difficulty-container"><!-- Cards injected via JS --></div>
-            <button id="btn-difficulty-back" class="menu-btn">BACK</button>
+            <button type="button" id="btn-difficulty-back" class="menu-btn">BACK</button>
         </div>
 
         <!-- INTRO LORE CRAWL (first campaign launch) -->
@@ -145,7 +165,7 @@
                 <div id="intro-header">GUILD DISPATCH ▸ PRIORITY TRANSMISSION</div>
                 <div id="intro-text"></div>
             </div>
-            <button id="btn-intro-skip" class="menu-btn">SKIP &gt;&gt;</button>
+            <button type="button" id="btn-intro-skip" class="menu-btn">SKIP &gt;&gt;</button>
         </div>
 
         <!-- STAR MAP -->
@@ -159,50 +179,79 @@
                 <div id="map-nodes"></div>
             </div>
             <div id="map-briefing"></div>
-            <button id="btn-map-back" class="menu-btn map-back">HANGAR</button>
+            <button type="button" id="btn-map-back" class="menu-btn map-back">HANGAR</button>
         </div>
 
         <!-- VICTORY (campaign complete) -->
         <div id="menu-victory" class="menu-screen">
-            <h1 style="color:#ffcc00; text-shadow: 0 0 16px #ffcc00;">TURNPIKE SAVED</h1>
+            <h1 class="title-gold">TURNPIKE SAVED</h1>
             <div id="victory-text"></div>
             <div id="victory-score"></div>
-            <button id="btn-victory-map" class="menu-btn">BACK TO THE MAP</button>
-            <button id="btn-victory-menu" class="menu-btn" style="margin-top: 0;">MAIN MENU</button>
+            <div class="btn-stack">
+                <button type="button" id="btn-victory-map" class="menu-btn primary">BACK TO THE MAP</button>
+                <button type="button" id="btn-victory-menu" class="menu-btn">MAIN MENU</button>
+            </div>
         </div>
 
         <!-- LEVEL UP (ROGUELITE) SCREEN -->
         <div id="menu-levelup" class="menu-screen">
-            <h2 id="levelup-title" style="color:#ffcc00; text-shadow: 0 0 10px #ffcc00;">SYSTEM UPGRADE AVAILABLE</h2>
+            <h2 id="levelup-title" class="title-gold">SYSTEM UPGRADE AVAILABLE</h2>
             <div id="upgrade-container"><!-- Cards injected via JS --></div>
         </div>
 
         <!-- LEVEL COMPLETE / SCORE TALLY SCREEN -->
         <div id="menu-levelcomplete" class="menu-screen">
-            <h1 id="lc-title" style="color:#ffcc00; text-shadow: 0 0 12px #ffcc00;">SECTOR 1 CLEAR</h1>
+            <h1 id="lc-title" class="title-gold">SECTOR 1 CLEAR</h1>
             <div id="lc-quip" class="quip-line"></div>
             <div id="lc-lines"><!-- Tally rows injected via JS --></div>
             <div id="lc-grade" class="grade-stamp"></div>
-            <button id="btn-continue" class="menu-btn">CONTINUE</button>
+            <button type="button" id="btn-continue" class="menu-btn primary">CONTINUE</button>
         </div>
 
         <!-- PAUSE SCREEN -->
         <div id="menu-pause" class="menu-screen">
             <h1>PAUSED</h1>
             <div id="pause-node"></div>
-            <button id="btn-resume" class="menu-btn">RESUME</button>
-            <button id="btn-quit" class="menu-btn">RETURN TO STAR MAP</button>
+            <div class="btn-stack">
+                <button type="button" id="btn-resume" class="menu-btn primary">RESUME</button>
+                <button type="button" id="btn-quit" class="menu-btn">RETURN TO STAR MAP</button>
+            </div>
         </div>
 
         <!-- GAME OVER SCREEN -->
         <div id="menu-gameover" class="menu-screen">
-            <h1 style="color: #ff4444;">HULL BREACHED</h1>
-            <div class="grade-stamp show grade-f" style="position: static; transform: none; margin-bottom: 20px;">F</div>
-            <div id="final-score" style="margin-bottom: 12px; font-size: 20px;">SCORE: 0</div>
-            <div id="final-level" style="margin-bottom: 16px; font-size: 14px; color:#aaa;">REACHED SECTOR: 1</div>
+            <h1 class="title-danger">HULL BREACHED</h1>
+            <div class="grade-stamp show grade-f gameover-grade">F</div>
+            <div id="final-score">SCORE: 0</div>
+            <div id="final-level">REACHED SECTOR: 1</div>
             <div id="gameover-quip" class="quip-line"></div>
-            <button id="btn-gameover-map" class="menu-btn">RETURN TO STAR MAP</button>
-            <button id="btn-mainmenu" class="menu-btn" style="margin-top: 0;">MAIN MENU</button>
+            <div class="btn-stack">
+                <button type="button" id="btn-gameover-map" class="menu-btn primary">RETURN TO STAR MAP</button>
+                <button type="button" id="btn-mainmenu" class="menu-btn">MAIN MENU</button>
+            </div>
+        </div>
+
+        <!-- TOUCH CONTROLS: only shown on touch screens while flying (main.css) -->
+        <div id="touch-controls">
+            <div id="touch-stick-zone">
+                <div id="touch-stick" aria-hidden="true"><div id="touch-knob"></div></div>
+            </div>
+            <button type="button" id="touch-pause" aria-label="Pause">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+            </button>
+            <div id="touch-actions">
+                <button type="button" id="touch-special" aria-label="Special ability">
+                    <span id="touch-special-label">SPECIAL</span>
+                </button>
+                <button type="button" id="touch-fire" aria-label="Fire">FIRE</button>
+            </div>
+        </div>
+
+        <!-- ROTATE PROMPT: covers everything on touch screens held upright -->
+        <div id="rotate-overlay" role="alert">
+            <div class="rotate-phone" aria-hidden="true"><div class="rotate-screen"></div></div>
+            <div class="rotate-title">ROTATE YOUR DEVICE</div>
+            <div class="rotate-sub">Retro Space Blaster plays in landscape.<br>Turn your phone sideways to fly.</div>
         </div>
     </div>
 

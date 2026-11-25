@@ -14,6 +14,7 @@ import { Sprites } from './sprites.js';
 import { store } from './store.js';
 import { Campaign, MAP_NODES, MAP_ZONES, getNode } from './map.js';
 import { STORY, randomQuip } from './story.js';
+import { updateTouchSpecial, tryLockLandscape } from './touch.js';
 
 const $ = id => document.getElementById(id);
 
@@ -34,6 +35,7 @@ export const UI = {
         const dismissSplash = () => {
             if (Runtime.state !== STATE.SPLASH) return;
             Sound.init();
+            tryLockLandscape(); // needs a user gesture; harmless if refused
             UI.showMain();
         };
         window.addEventListener('keydown', dismissSplash);
@@ -43,6 +45,11 @@ export const UI = {
         let selectedShipIdx = store.get('ship', 1);
         let useHD = store.get('hd', false);
         $('chk-hd-sprites').checked = useHD;
+
+        // One dot per ship under the hangar card, so players can see how
+        // many ships there are and where they are in the lineup.
+        const dots = $('ship-dots');
+        dots.innerHTML = SHIPS.map(() => '<span></span>').join('');
 
         const updatePreview = () => {
             const ship = getShip(selectedShipIdx);
@@ -61,11 +68,18 @@ export const UI = {
             $('ship-ability-name').style.color = ship.ability.color;
             $('ship-ability-desc').innerText = ship.ability.desc;
 
-            // Simple 1-5 pip stat bars
-            const pips = (v) => '■'.repeat(v) + '□'.repeat(5 - v);
-            $('stat-spd').innerText = pips(Math.round((ship.stats.speed - 0.7) * 10));
-            $('stat-pow').innerText = pips(Math.min(5, Math.round(ship.stats.damage * 2)));
-            $('stat-rof').innerText = pips(Math.round((30 - ship.stats.fireDelay) / 3.5));
+            // 0-5 stat meters drawn as filled bars (CSS animates the width,
+            // so swapping ships makes the bars slide like a fuel gauge).
+            const bar = (id, v) => {
+                const el = $(id);
+                el.style.width = (Math.max(0, Math.min(5, v)) / 5 * 100) + '%';
+                el.style.background = ship.stats.color;
+            };
+            bar('stat-spd', Math.round((ship.stats.speed - 0.7) * 10));
+            bar('stat-pow', Math.min(5, Math.round(ship.stats.damage * 2)));
+            bar('stat-rof', Math.round((30 - ship.stats.fireDelay) / 3.5));
+            $('ship-selector').style.setProperty('--ship-color', ship.stats.color);
+            [...dots.children].forEach((d, i) => d.classList.toggle('on', i === selectedShipIdx - 1));
 
             Runtime.shipDef = ship;
             Runtime.shipSpriteName = `${ship.sprite}${suffix}`;
@@ -74,14 +88,36 @@ export const UI = {
             store.set('hd', useHD);
         };
 
-        $('btn-ship-prev').addEventListener('click', () => {
-            selectedShipIdx = selectedShipIdx > 1 ? selectedShipIdx - 1 : SHIPS.length;
+        /**
+         * Cycle ships and slide the new one in from the side you pressed, so
+         * the hangar reads like a carousel rather than an image swap.
+         * Analogy: flipping through a binder — next comes from the right.
+         */
+        const cycleShip = (dir) => {
+            selectedShipIdx = dir > 0
+                ? (selectedShipIdx < SHIPS.length ? selectedShipIdx + 1 : 1)
+                : (selectedShipIdx > 1 ? selectedShipIdx - 1 : SHIPS.length);
             updatePreview();
+            Sound.play('uiSwipe');
+            const card = document.querySelector('.hangar-card');
+            card.classList.remove('swap-next', 'swap-prev');
+            void card.offsetWidth; // restart the CSS animation
+            card.classList.add(dir > 0 ? 'swap-next' : 'swap-prev');
+        };
+        $('btn-ship-prev').addEventListener('click', () => cycleShip(-1));
+        $('btn-ship-next').addEventListener('click', () => cycleShip(1));
+
+        // Swipe the hangar card left/right on touch screens.
+        let swipeX = null;
+        const stage = document.querySelector('.hangar-card');
+        stage.addEventListener('pointerdown', e => { swipeX = e.clientX; });
+        stage.addEventListener('pointerup', e => {
+            if (swipeX === null) return;
+            const dx = e.clientX - swipeX;
+            swipeX = null;
+            if (Math.abs(dx) > 40) cycleShip(dx < 0 ? 1 : -1);
         });
-        $('btn-ship-next').addEventListener('click', () => {
-            selectedShipIdx = selectedShipIdx < SHIPS.length ? selectedShipIdx + 1 : 1;
-            updatePreview();
-        });
+        stage.addEventListener('pointercancel', () => { swipeX = null; });
         $('chk-hd-sprites').addEventListener('change', (e) => {
             useHD = e.target.checked;
             updatePreview();
@@ -119,14 +155,18 @@ export const UI = {
         // ---------------- Pause ----------------
         window.addEventListener('keydown', (e) => {
             if (e.code !== 'Escape' && e.code !== 'KeyP') return;
-            if (Runtime.state === STATE.PLAYING) {
-                Runtime.state = STATE.PAUSED;
-                Sound.pauseBGM();
-                $('pause-node').innerText = Game.currentNode ? Game.currentNode.name : '';
-                $('menu-pause').classList.add('active');
-            } else if (Runtime.state === STATE.PAUSED) {
-                UI.resumeFromPause();
-            }
+            if (Runtime.state === STATE.PLAYING) UI.pause();
+            else if (Runtime.state === STATE.PAUSED) UI.resumeFromPause();
+        });
+
+        // ---------------- Menu feel: sounds + keyboard ----------------
+        UI.bindMenuFeedback();
+        // Left/Right flips through ships on the hangar screen.
+        window.addEventListener('keydown', (e) => {
+            if (Runtime.state !== STATE.MENU || !$('menu-main').classList.contains('active')) return;
+            if (e.target instanceof HTMLInputElement) return;
+            if (e.code === 'ArrowLeft') { e.preventDefault(); cycleShip(-1); }
+            if (e.code === 'ArrowRight') { e.preventDefault(); cycleShip(1); }
         });
         $('btn-resume').addEventListener('click', () => UI.resumeFromPause());
         $('btn-quit').addEventListener('click', () => { Sound.stopBGM(); UI.showMap(); });
@@ -145,13 +185,85 @@ export const UI = {
         volSfx.addEventListener('input', updateVolumes);
         updateVolumes();
 
+        // Swap ONLY the theme class: <body> also carries layout classes like
+        // is-touch, which a blanket className = ... would wipe out.
+        const applyTheme = (theme) => {
+            document.body.classList.remove('theme-neon', 'theme-magenta', 'theme-classic');
+            document.body.classList.add(theme);
+            document.querySelectorAll('.theme-btn').forEach(b =>
+                b.classList.toggle('selected', b.dataset.theme === theme));
+        };
         document.querySelectorAll('.theme-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.body.className = e.target.dataset.theme;
-                store.set('theme', e.target.dataset.theme);
+            btn.addEventListener('click', () => {
+                applyTheme(btn.dataset.theme);
+                store.set('theme', btn.dataset.theme);
             });
         });
-        document.body.className = store.get('theme', 'theme-neon');
+        applyTheme(store.get('theme', 'theme-neon'));
+    },
+
+    /** Freeze the fight and show the pause menu (ESC, P, or the touch button). */
+    pause() {
+        if (Runtime.state !== STATE.PLAYING) return;
+        Runtime.state = STATE.PAUSED;
+        Sound.pauseBGM();
+        $('pause-node').innerText = Game.currentNode ? Game.currentNode.name : '';
+        $('menu-pause').classList.add('active');
+    },
+
+    /**
+     * Give every menu control a little "click": a soft tick when the mouse
+     * or keyboard lands on it, a chirp when it's chosen, and Up/Down arrow
+     * keys to move between buttons. Delegated from the document, so cards
+     * the game builds later (difficulty, upgrades, map nodes) get it too.
+     * Analogy: the detent on a volume knob — you feel each step.
+     */
+    bindMenuFeedback() {
+        const SELECTOR = '.menu-btn, .diff-card, .upgrade-card, .map-node, .theme-btn, #touch-pause';
+        let lastHover = null;
+        document.addEventListener('pointerover', (e) => {
+            const el = e.target instanceof Element ? e.target.closest(SELECTOR) : null;
+            if (!el || el === lastHover) return;
+            lastHover = el;
+            // Touch "hover" fires right before every tap; skip it so taps
+            // don't double up with the select chirp.
+            if (e.pointerType === 'mouse') Sound.play('uiHover');
+        });
+        document.addEventListener('focusin', (e) => {
+            const el = e.target instanceof Element ? e.target.closest(SELECTOR) : null;
+            if (el && el.matches(':focus-visible')) Sound.play('uiHover');
+        });
+        document.addEventListener('click', (e) => {
+            const el = e.target instanceof Element ? e.target.closest(SELECTOR) : null;
+            if (el) Sound.play('uiSelect');
+        });
+
+        // Arrow-key focus movement inside whichever menu is open. Cards the
+        // game injects are divs, so make them focusable + Enter-activatable.
+        window.addEventListener('keydown', (e) => {
+            if (Runtime.state === STATE.PLAYING) return;
+            const screen = document.querySelector('.menu-screen.active');
+            if (!screen) return;
+            if (e.code === 'Enter' || e.code === 'Space') {
+                const t = e.target;
+                if (t instanceof HTMLElement && t.matches('.diff-card, .upgrade-card, .map-node')) {
+                    e.preventDefault(); t.click();
+                }
+                return;
+            }
+            const step = e.code === 'ArrowDown' ? 1 : e.code === 'ArrowUp' ? -1 : 0;
+            if (!step) return;
+            const items = [...screen.querySelectorAll('button, .diff-card, .upgrade-card, .map-node')]
+                .filter(el => el instanceof HTMLElement && el.offsetParent !== null);
+            if (!items.length) return;
+            e.preventDefault();
+            const i = items.indexOf(/** @type {HTMLElement} */ (document.activeElement));
+            const next = items[(i + step + items.length) % items.length];
+            if (next instanceof HTMLElement) {
+                if (!next.hasAttribute('tabindex') && next.tagName !== 'BUTTON') next.tabIndex = 0;
+                next.focus();
+            }
+        });
     },
 
     resumeFromPause() {
@@ -194,6 +306,7 @@ export const UI = {
         Object.values(DIFFICULTIES).forEach(d => {
             const card = document.createElement('div');
             card.className = 'diff-card' + (Runtime.difficulty.id === d.id ? ' selected' : '');
+            card.tabIndex = 0; card.setAttribute('role', 'button');
             card.style.borderColor = d.color;
             card.innerHTML = `
                 <div class="diff-name" style="color:${d.color}">${d.label}</div>
@@ -370,7 +483,7 @@ export const UI = {
             <div class="brief-title" style="color:${zone.color}">${n.name}<span class="brief-type">${n.type} — SECTOR ${n.sector}</span></div>
             <div class="brief-lore">"${n.lore}"</div>
             <div class="brief-mods">${chips.map(c => `<span class="brief-chip">${c}</span>`).join('')}</div>
-            <button id="btn-node-launch" class="menu-btn">LAUNCH</button>
+            <button type="button" id="btn-node-launch" class="menu-btn primary">LAUNCH</button>
         `;
         $('btn-node-launch').onclick = () => Game.startNode(n);
         Sound.play('ding');
@@ -529,6 +642,8 @@ export const UI = {
             const rar = RARITIES[upg.rarity];
             const card = document.createElement('div');
             card.className = 'upgrade-card rarity-' + upg.rarity;
+            card.tabIndex = 0; card.setAttribute('role', 'button');
+            card.style.setProperty('--i', String(container.children.length)); // stagger the deal-in
             card.style.borderColor = rar.color;
             card.innerHTML = `
                 <div class="upg-rarity" style="color:${rar.color}">${rar.label}</div>
@@ -587,6 +702,7 @@ export const UI = {
             nameEl.innerText = ready ? def.name + ' — READY' : def.name;
             nameEl.style.color = def.color;
             nameEl.classList.toggle('ability-ready', ready);
+            updateTouchSpecial(def, pct);
         }
     },
 
