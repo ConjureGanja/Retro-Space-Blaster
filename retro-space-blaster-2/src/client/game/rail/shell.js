@@ -312,9 +312,14 @@ function onDead() {
 export function beginLevel(id, opts = {}) {
   const camp = campaign();
   if (!camp.unlocked.includes(id) && !opts.force) return;
-  levelId = id;
+  // Why: `id` can arrive from the dev API as an arbitrary string, and later it is
+  // used as a property name (camp.completed[levelId]). Resolving it through the
+  // level table means only known ids ever become keys (no "__proto__" tricks).
+  // Analogy: a bouncer who checks the guest list and writes down the name printed
+  // on the list, not whatever the visitor claims to be called.
+  levelId = getLevel(id).id;
   run = createRun({
-    levelId: id,
+    levelId,
     difficulty: diffId,
     shipIdx,
     seed: opts.seed || (Math.floor(performance.now()) % 90000) + 1,
