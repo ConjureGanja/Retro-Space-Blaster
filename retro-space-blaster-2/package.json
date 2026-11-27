@@ -26,22 +26,22 @@
     "test:unit": "node --experimental-strip-types --no-warnings=ExperimentalWarning --test \"src/**/*.test.ts\""
   },
   "dependencies": {
-    "@devvit/web": "0.15.1",
+    "@devvit/web": "0.15.2",
     "@fontsource/press-start-2p": "5.3.0",
-    "@hono/node-server": "2.1.5",
-    "hono": "4.13.14"
+    "@hono/node-server": "2.1.6",
+    "hono": "4.13.18"
   },
   "devDependencies": {
-    "@devvit/start": "0.15.1",
+    "@devvit/start": "0.15.2",
     "@eslint/js": "10.0.1",
     "@types/node": "24.19.2",
-    "devvit": "0.15.1",
-    "eslint": "10.13.0",
-    "globals": "17.13.0",
-    "prettier": "3.9.10",
+    "devvit": "0.15.2",
+    "eslint": "10.14.0",
+    "globals": "17.14.0",
+    "prettier": "3.10.1",
     "sharp": "0.35.5",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.72.1",
-    "vite": "8.3.5"
+    "typescript-eslint": "8.72.2",
+    "vite": "8.3.6"
   }
 }
