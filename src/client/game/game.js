@@ -465,21 +465,36 @@ export const Game = {
         if (ship.muzzleFlash > 0) ship.muzzleFlash--;
         for (const k of Object.keys(ship.buffs)) if (ship.buffs[k] > 0) ship.buffs[k]--;
 
-        // --- Mouse tracking movement (ship always faces right, R-Type style) ---
+        // --- Movement (ship always faces right, R-Type style) ---
         ship.a = 0;
-        const dx = input.mouseX - ship.x;
-        const dy = input.mouseY - ship.y;
-        const distToMouse = Math.hypot(dx, dy);
-
         const speedBuff = ship.buffs.speed > 0 ? 1.5 : 1;
         const speedLimit = CONSTANTS.MOVE_MAX_SPEED * this.upgrades.speedMult
             * ship.shipDef.stats.speed * speedBuff;
-        if (distToMouse > CONSTANTS.MOVE_DEADZONE) {
-            // Desired velocity points at the cursor and scales with distance,
-            // so the ship slows as it arrives instead of overshooting.
-            const desiredSpeed = Math.min(distToMouse * CONSTANTS.MOVE_APPROACH, speedLimit);
-            const tvx = (dx / distToMouse) * desiredSpeed;
-            const tvy = (dy / distToMouse) * desiredSpeed;
+
+        // Both control schemes boil down to a "desired velocity"; the ship
+        // then eases toward it, so mouse and thumbstick feel equally weighty.
+        let tvx = 0, tvy = 0, steering = false;
+        if (input.mode === 'touch') {
+            // Thumbstick: deflection IS the throttle — half-push = half speed.
+            if (input.stickX || input.stickY) {
+                tvx = input.stickX * speedLimit;
+                tvy = input.stickY * speedLimit;
+                steering = true;
+            }
+        } else {
+            const dx = input.mouseX - ship.x;
+            const dy = input.mouseY - ship.y;
+            const distToMouse = Math.hypot(dx, dy);
+            if (distToMouse > CONSTANTS.MOVE_DEADZONE) {
+                // Desired velocity points at the cursor and scales with distance,
+                // so the ship slows as it arrives instead of overshooting.
+                const desiredSpeed = Math.min(distToMouse * CONSTANTS.MOVE_APPROACH, speedLimit);
+                tvx = (dx / distToMouse) * desiredSpeed;
+                tvy = (dy / distToMouse) * desiredSpeed;
+                steering = true;
+            }
+        }
+        if (steering) {
             ship.xv += (tvx - ship.xv) * CONSTANTS.MOVE_ACCEL;
             ship.yv += (tvy - ship.yv) * CONSTANTS.MOVE_ACCEL;
         } else {
@@ -559,8 +574,18 @@ export const Game = {
 
         if (def.key === 'dash') {
             Sound.play('dash');
-            const tx = Math.min(Math.max(input.mouseX, ship.r), W - ship.r);
-            const ty = Math.min(Math.max(input.mouseY, ship.r), H - ship.r);
+            // Mouse: blink to the cursor. Touch has no cursor, so blink a fixed
+            // distance in the thumbstick's direction (straight ahead if idle).
+            let aimX = input.mouseX, aimY = input.mouseY;
+            if (input.mode === 'touch') {
+                const sx = input.stickX, sy = input.stickY;
+                const len = Math.hypot(sx, sy);
+                const dirX = len > 0 ? sx / len : 1, dirY = len > 0 ? sy / len : 0;
+                aimX = ship.x + dirX * def.touchRange;
+                aimY = ship.y + dirY * def.touchRange;
+            }
+            const tx = Math.min(Math.max(aimX, ship.r), W - ship.r);
+            const ty = Math.min(Math.max(aimY, ship.r), H - ship.r);
             // Damage everything near the dash path
             const x1 = ship.x, y1 = ship.y, ddx = tx - x1, ddy = ty - y1;
             const len2 = ddx * ddx + ddy * ddy || 1;

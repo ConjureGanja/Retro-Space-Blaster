@@ -1,0 +1,15 @@
+# Generated / vendored — never format
+dist/
+node_modules/
+public/
+package-lock.json
+legacy/
+art/
+
+# The original game modules keep their hand-aligned 4-space style for now, so
+# this PR's diff shows real changes instead of 6,000 lines of whitespace.
+# To adopt Prettier later: delete these lines, run `npm run format`, and commit
+# that as its own "style only" commit (makes `git blame` easy to skip past).
+src/client/game/*.js
+src/client/game.html
+src/client/styles/main.css

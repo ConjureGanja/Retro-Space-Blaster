@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Retro Space Blaster: Roguelite Edition</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        :root {
+            --main-color: #44ff44;
+            --bg-color: #050505;
+            --overlay-bg: rgba(0, 0, 0, 0.92);
+        }
+
+        body {
+            margin: 0; padding: 0; background-color: var(--bg-color);
+            overflow: hidden; font-family: 'Press Start 2P', cursive;
+            color: var(--main-color); touch-action: none;
+            user-select: none; -webkit-user-select: none;
+            cursor: crosshair; /* Better aiming cursor */
+        }
+
+        #game-container {
+            position: relative; width: 100vw; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
+            background: radial-gradient(circle, #1a1a1a 0%, #000 100%);
+        }
+
+        canvas {
+            display: block; box-shadow: 0 0 20px rgba(68, 255, 68, 0.2);
+            border: 2px solid #333; max-width: 100%; max-height: 100%;
+        }
+
+        .scanlines {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size: 100% 4px; pointer-events: none; z-index: 10;
+        }
+
+        #ui-layer {
+            position: absolute; top: 20px; left: 20px; pointer-events: none;
+            z-index: 20; text-shadow: 2px 2px 0px #000;
+            width: calc(100% - 40px); display: flex; justify-content: space-between;
+        }
+
+        .hud-text { font-size: 16px; line-height: 1.5; margin-bottom: 5px; }
+
+        /* XP Bar */
+        #xp-bar-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 6px;
+            background: #222; z-index: 25;
+        }
+        #xp-bar-fill { height: 100%; width: 0%; background: #ffcc00; transition: width 0.2s; box-shadow: 0 0 10px #ffcc00; }
+
+        /* Time Shift HUD */
+        #ts-hud {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            text-align: center; z-index: 20; width: 200px; pointer-events: none;
+        }
+        #ts-text { font-size: 10px; color: #00ffff; margin-bottom: 5px; }
+        .ts-bar-bg { height: 8px; width: 100%; border: 1px solid #555; background: #222; }
+        #ts-bar-fill { height: 100%; background: #00ffff; width: 100%; transition: width 0.1s linear; }
+
+        .menu-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--overlay-bg); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 30;
+            text-align: center; display: none;
+        }
+        .menu-screen.active { display: flex; }
+
+        h1 { font-size: 40px; color: var(--main-color); text-shadow: 0 0 10px var(--main-color); margin-bottom: 30px; }
+        h2 { font-size: 20px; margin-bottom: 15px; color: #fff; }
+
+        .menu-btn {
+            background: transparent; color: var(--main-color);
+            font-family: 'Press Start 2P', cursive; font-size: 16px;
+            padding: 15px 25px; border: 3px solid var(--main-color);
+            cursor: pointer; text-transform: uppercase; margin: 10px;
+            transition: all 0.2s; width: 250px;
+        }
+        .menu-btn:hover { background: var(--main-color); color: #000; box-shadow: 0 0 15px var(--main-color); }
+
+        /* Upgrade Cards */
+        #upgrade-container {
+            display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;
+            max-width: 900px; margin-top: 20px;
+        }
+        .upgrade-card {
+            border: 3px solid #555; background: #111; padding: 20px;
+            width: 220px; cursor: pointer; transition: 0.2s;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .upgrade-card:hover { transform: translateY(-10px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        .upg-title { font-size: 14px; margin-bottom: 10px; height: 30px; display: flex; align-items: center; justify-content: center; line-height: 1.2;}
+        .upg-desc { font-size: 10px; color: #ccc; line-height: 1.5; margin-bottom: 15px; flex-grow: 1;}
+        .upg-flavor { font-size: 8px; color: #666; font-style: italic; }
+
+        /* Tutorial */
+        .controls-info { font-size: 10px; color: #888; margin-top: 30px; line-height: 2; }
+        .key-btn { border: 1px solid #888; padding: 2px 5px; border-radius: 3px; color: #fff;}
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div class="scanlines"></div>
+        <div id="xp-bar-container"><div id="xp-bar-fill"></div></div>
+        
+        <div id="ui-layer">
+            <div>
+                <div id="score" class="hud-text">SCORE: 0</div>
+                <div id="lives" class="hud-text">LIVES: 3</div>
+            </div>
+            <div style="text-align: right;">
+                <div id="level-hud" class="hud-text">LVL: 1</div>
+            </div>
+        </div>
+
+        <div id="ts-hud">
+            <div id="ts-text">TIME SHIFT</div>
+            <div class="ts-bar-bg"><div id="ts-bar-fill"></div></div>
+        </div>
+
+        <!-- MAIN MENU -->
+        <div id="menu-main" class="menu-screen active">
+            <h1>VECTOR BLASTER</h1>
+            <button class="menu-btn" onclick="Game.startGame()">START MISSION</button>
+            <div class="controls-info">
+                MOUSE = Move Ship & Aim<br>
+                <span class="key-btn">LEFT CLICK</span> = Fire Weapons<br>
+                <span class="key-btn">RIGHT CLICK</span> = Time Shift
+            </div>
+        </div>
+
+        <!-- LEVEL UP (ROGUELITE) SCREEN -->
+        <div id="menu-levelup" class="menu-screen">
+            <h2 style="color:#ffcc00; text-shadow: 0 0 10px #ffcc00;">SYSTEM UPGRADE AVAILABLE</h2>
+            <div id="upgrade-container">
+                <!-- Cards injected here via JS -->
+            </div>
+        </div>
+
+        <!-- GAME OVER SCREEN -->
+        <div id="menu-gameover" class="menu-screen">
+            <h1 style="color: #ff4444;">HULL BREACHED</h1>
+            <div id="final-score" style="margin-bottom: 20px; font-size: 20px;">SCORE: 0</div>
+            <div id="final-level" style="margin-bottom: 30px; font-size: 14px; color:#aaa;">REACHED LEVEL: 1</div>
+            <button class="menu-btn" onclick="UI.showMain()">MAIN MENU</button>
+        </div>
+    </div>
+
+<script>
+/**
+ * RETRO SPACE BLASTER: ROGUELITE EDITION
+ * Complete single-file game with Vector Engine, Mouse Controls, Audio Synth, and Stacking Upgrades.
+ */
+
+const CONSTANTS = {
+    GAME_WIDTH: window.innerWidth, GAME_HEIGHT: window.innerHeight,
+    TIME_SLOW_FACTOR: 0.15, // How slow time gets during shift
+    TS_MAX_ENERGY: 100, // Max Time Shift energy
+    TS_DRAIN_RATE: 1.5, // Energy lost per frame while active
+    TS_RECHARGE_RATE: 0.2 // Energy gained per frame while inactive
+};
+
+const STATE = { MENU: 0, PLAYING: 1, LEVELUP: 2, GAME_OVER: 3 };
+let currentState = STATE.MENU;
+
+const input = { mouseX: CONSTANTS.GAME_WIDTH/2, mouseY: CONSTANTS.GAME_HEIGHT/2, clickLeft: false, clickRight: false };
+
+// --- AUDIO SYNTHESIS ENGINE ---
+let audioCtx;
+const Sound = {
+    init: () => { if(!audioCtx) audioCtx = new AudioContext(); if(audioCtx.state==='suspended') audioCtx.resume(); },
+    play: (t) => {
+        if(!audioCtx) return;
+        const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+        o.connect(g); g.connect(audioCtx.destination); const now = audioCtx.currentTime;
+        if(t==='shoot') { o.frequency.setValueAtTime(600, now); o.frequency.exponentialRampToValueAtTime(100, now+0.1); g.gain.setValueAtTime(0.05,now); g.gain.linearRampToValueAtTime(0,now+0.1); o.start(now); o.stop(now+0.1); }
+        if(t==='shoot_heavy') { o.type='triangle'; o.frequency.setValueAtTime(300, now); o.frequency.linearRampToValueAtTime(50, now+0.2); g.gain.setValueAtTime(0.08,now); g.gain.linearRampToValueAtTime(0,now+0.2); o.start(now); o.stop(now+0.2); }
+        if(t==='shoot_flak') { o.type='square'; o.frequency.setValueAtTime(400, now); o.frequency.exponentialRampToValueAtTime(50, now+0.1); g.gain.setValueAtTime(0.08,now); g.gain.linearRampToValueAtTime(0,now+0.1); o.start(now); o.stop(now+0.1); }
+        if(t==='explode') { o.type='sawtooth'; o.frequency.setValueAtTime(100, now); o.frequency.linearRampToValueAtTime(10, now+0.4); g.gain.setValueAtTime(0.2,now); g.gain.linearRampToValueAtTime(0,now+0.4); o.start(now); o.stop(now+0.4); }
+        if(t==='timeshift') { o.type='sine'; o.frequency.setValueAtTime(400, now); o.frequency.exponentialRampToValueAtTime(50, now+0.5); g.gain.setValueAtTime(0.2,now); g.gain.linearRampToValueAtTime(0,now+0.5); o.start(now); o.stop(now+0.5); }
+        if(t==='levelup') { o.type='square'; o.frequency.setValueAtTime(440, now); o.frequency.setValueAtTime(554, now+0.1); o.frequency.setValueAtTime(659, now+0.2); g.gain.setValueAtTime(0.1,now); g.gain.linearRampToValueAtTime(0,now+0.5); o.start(now); o.stop(now+0.5); }
+    }
+};
+
+const UPGRADE_POOL = [
+    { id: 'double', name: 'TWIN CANNONS', desc: 'Adds parallel laser emitters.', flavor: '"Twice the pride, double the fall."', color: '#ffcc00', apply: () => { Game.upgrades.doubleShot++; } },
+    { id: 'spread', name: 'SPREAD MODULE', desc: 'Adds angled lasers to your shots.', flavor: '"Accuracy through volume."', color: '#ff8800', apply: () => { Game.upgrades.spreadShot++; } },
+    { id: 'tail', name: 'TAIL GUNNER', desc: 'Fires lasers backwards.', flavor: '"Check your six."', color: '#888888', apply: () => { Game.upgrades.tailGunner++; } },
+    { id: 'rate', name: 'OVERCLOCK', desc: 'Increases rate of fire.', flavor: '"Brrrrrrrrrt."', color: '#00ffaa', apply: () => { Game.upgrades.fireRate = Math.min(Game.upgrades.fireRate + 0.2, 0.8); } }, // Max 80% reduction
+    { id: 'speed', name: 'THRUSTER BOOST', desc: 'Increases max speed and agility.', flavor: '"Gotta go fast."', color: '#aaddff', apply: () => { Game.upgrades.speedMult += 0.2; } },
+    { id: 'range', name: 'LONG BARREL', desc: 'Lasers travel much further.', flavor: '"Reach out and touch someone."', color: '#cccccc', apply: () => { Game.upgrades.laserRange += 0.5; } },
+    
+    // Wild Upgrades
+    { id: 'pierce', name: 'RAILGUN ROUNDS', desc: 'Lasers pierce through targets.', flavor: '"Line them up."', color: '#00ffff', apply: () => { Game.upgrades.sniper = true; } },
+    { id: 'tracer', name: 'TRACER ROUNDS', desc: 'Lasers leave a damaging glowing trail.', flavor: '"Painting the void."', color: '#ff00aa', apply: () => { Game.upgrades.tracer = true; } },
+    { id: 'titan', name: 'TITAN CALIBER', desc: 'Massively increases bullet size and damage.', flavor: '"Size does matter."', color: '#ff4444', apply: () => { Game.upgrades.bulletSize += 2; } },
+    { id: 'seeker', name: 'SEEKER MISSILES', desc: 'Bullets actively home in on nearby enemies.', flavor: '"Fire and forget."', color: '#aa00ff', apply: () => { Game.upgrades.seeker += 0.05; } },
+    { id: 'explosive', name: 'HIGH EXPLOSIVE', desc: 'Bullets explode on impact, damaging an area.', flavor: '"Boom."', color: '#ffaa00', apply: () => { Game.upgrades.explosive += 15; } }, // Adds to radius
+    { id: 'prism', name: 'PRISMATIC CORE', desc: 'Fires rainbow lasers. Deals bonus damage.', flavor: '"Taste the rainbow."', color: '#ffffff', apply: () => { Game.upgrades.prismatic = true; } },
+    { id: 'bouncy', name: 'PINBALL OPTICS', desc: 'Lasers bounce off screen edges instead of wrapping.', flavor: '"Geometry is a weapon."', color: '#0088ff', apply: () => { Game.upgrades.bouncy = true; } },
+    { id: 'wobbly', name: 'PHASE WOBBLE', desc: 'Lasers fly in a wide sine-wave pattern.', flavor: '"Can\'t dodge what makes no sense."', color: '#aaddff', apply: () => { Game.upgrades.wobbly = true; } },
+    { id: 'flak', name: 'FLAK CANNON', desc: 'Fires a shotgun burst of short-range shrapnel.', flavor: '"Clear the air."', color: '#555555', apply: () => { Game.upgrades.flak += 3; } }, // Pellets per shot
+    { id: 'orbitals', name: 'PLASMA DRONES', desc: 'Spawns an orb that orbits you. Upgrades add more, size, and range.', flavor: '"Personal space enforcer."', color: '#ccff00', apply: () => { 
+        Game.upgrades.orbitals++; 
+        Game.entities.orbitals = [];
+        const count = Game.upgrades.orbitals;
+        const dist = 50 + (count * 8); // Wider orbit
+        const size = 5 + (count * 2); // Bigger orbs
+        const speed = 0.05 + (count * 0.005); // Faster orbit
+        for(let i=0; i<count; i++) {
+            Game.entities.orbitals.push({ angle: (i/count) * Math.PI * 2, dist: dist, size: size, speed: speed });
+        }
+    }},
+    { id: 'life', name: 'HULL REPAIR', desc: 'Grants an extra life.', flavor: '"Duct tape fixes everything."', color: '#00ff00', apply: () => { Game.lives++; UI.updateHUD(); } }
+];
+
+const canvas = document.getElementById('gameCanvas');
+canvas.addEventListener('mousemove', e => { input.mouseX = e.clientX; input.mouseY = e.clientY; });
+canvas.addEventListener('mousedown', e => { if(e.button === 0) input.clickLeft = true; if(e.button === 2) input.clickRight = true; });
+canvas.addEventListener('mouseup', e => { if(e.button === 0) input.clickLeft = false; if(e.button === 2) input.clickRight = false; });
+canvas.addEventListener('contextmenu', e => e.preventDefault()); // Stop right click menu
+
+// Touch support for mobile mimicking mouse
+canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    input.mouseX = e.touches[0].clientX; input.mouseY = e.touches[0].clientY;
+    if (e.touches.length === 1) input.clickLeft = true;
+    if (e.touches.length >= 2) input.clickRight = true; // Two fingers for Time Shift
+}, {passive: false});
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    input.mouseX = e.touches[0].clientX; input.mouseY = e.touches[0].clientY;
+}, {passive: false});
+canvas.addEventListener('touchend', e => {
+    e.preventDefault();
+    if (e.touches.length === 0) { input.clickLeft = false; input.clickRight = false; }
+    else if (e.touches.length === 1) { input.clickRight = false; }
+}, {passive: false});
+
+const Game = {
+    level: 1, lives: 3, score: 0, xp: 0, xpNeeded: 100, timeScale: 1.0,
+    
+    // Default Ship Stats & Upgrade Multipliers
+    upgrades: { 
+        doubleShot: 0, spreadShot: 0, tailGunner: 0, 
+        fireRate: 0, speedMult: 1.0, laserRange: 1.0,
+        sniper: false, tracer: false, bulletSize: 0, seeker: 0, 
+        explosive: 0, prismatic: false, bouncy: false, wobbly: false,
+        flak: 0, orbitals: 0
+    },
+    
+    entities: { ship: null, asteroids: [], enemies: [], lasers: [], enemyLasers: [], particles: [], xpOrbs: [], explosions: [], orbitals: [] },
+
+    init: () => {
+        window.addEventListener('resize', Game.resize); Game.resize(); Game.loop();
+    },
+
+    resize: () => {
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        CONSTANTS.GAME_WIDTH = canvas.width; CONSTANTS.GAME_HEIGHT = canvas.height;
+    },
+
+    startGame: () => {
+        Sound.init(); UI.hideAll();
+        
+        Game.level = 1; Game.lives = 3; Game.score = 0; Game.xp = 0; Game.xpNeeded = 100;
+        
+        // Reset Upgrades
+        Game.upgrades = { 
+            doubleShot: 0, spreadShot: 0, tailGunner: 0, fireRate: 0, speedMult: 1.0, laserRange: 1.0,
+            sniper: false, tracer: false, bulletSize: 0, seeker: 0, explosive: 0, prismatic: false, bouncy: false, wobbly: false, flak: 0, orbitals: 0
+        };
+        Game.entities = { ship: Game.createShip(), asteroids: [], enemies: [], lasers: [], enemyLasers: [], particles: [], xpOrbs: [], explosions: [], orbitals: [] };
+        
+        // Initial spawn
+        for(let i=0; i<8; i++) Game.spawnAsteroid();
+        
+        UI.updateHUD();
+        currentState = STATE.PLAYING;
+    },
+
+    createShip: () => ({
+        x: CONSTANTS.GAME_WIDTH/2, y: CONSTANTS.GAME_HEIGHT/2, xv: 0, yv: 0,
+        a: -Math.PI/2, r: 15, blinkNum: 0, blinkTime: 0, laserTimer: 0, dead: false, explodeTime: 0,
+        tsEnergy: CONSTANTS.TS_MAX_ENERGY
+    }),
+
+    spawnAsteroid: (x, y, r) => {
+        let ax = x, ay = y;
+        if (ax === undefined) {
+            if (Math.random() < 0.5) { ax = Math.random() < 0.5 ? -50 : CONSTANTS.GAME_WIDTH+50; ay = Math.random() * CONSTANTS.GAME_HEIGHT; }
+            else { ax = Math.random() * CONSTANTS.GAME_WIDTH; ay = Math.random() < 0.5 ? -50 : CONSTANTS.GAME_HEIGHT+50; }
+        }
+        r = r || (40 + Math.random()*20);
+        const vert = 8 + Math.floor(Math.random()*4);
+        const path = new Path2D();
+        for(let i=0; i<vert; i++) {
+            const angle = (i/vert)*Math.PI*2; const dist = r * (0.8 + Math.random()*0.4);
+            const px = dist * Math.cos(angle); const py = dist * Math.sin(angle);
+            if(i===0) path.moveTo(px, py); else path.lineTo(px, py);
+        }
+        path.closePath();
+        
+        let spd = 1.5 + (Game.level * 0.1); // Gets faster with level
+        Game.entities.asteroids.push({
+            x: ax, y: ay, r: r, xv: (Math.random()-0.5) * spd, yv: (Math.random()-0.5) * spd,
+            a: Math.random() * Math.PI * 2, rot: (Math.random()-0.5) * 0.05, path: path, hp: r > 30 ? 2 : 1 // Larger rocks take 2 normal hits
+        });
+    },
+
+    spawnEnemy: () => {
+        let typeIdx = 0;
+        if (Game.level > 3 && Math.random() < 0.3) typeIdx = 1; // Charger
+        if (Game.level > 5 && Math.random() < 0.2) typeIdx = 2; // Tank
+
+        const tDef = [
+            { type: 'saucer', hp: 1, spd: 1.5, r: 15, color: '#ff4444', path: new Path2D("M -10 -5 L 10 -5 L 0 10 Z") },
+            { type: 'charger', hp: 1, spd: 3.5, r: 12, color: '#ff00aa', path: new Path2D("M -8 -10 L 8 -10 L 0 15 Z") },
+            { type: 'tank', hp: 8, spd: 0.8, r: 25, color: '#ff8800', path: new Path2D("M -15 -10 L 15 -10 L 20 5 L 0 20 L -20 5 Z") }
+        ];
+        
+        const type = tDef[typeIdx];
+
+        Game.entities.enemies.push({
+            x: Math.random() < 0.5 ? -50 : CONSTANTS.GAME_WIDTH+50, 
+            y: Math.random() < 0.5 ? -50 : CONSTANTS.GAME_HEIGHT+50, 
+            xv: 0, yv: 0, r: type.r, hp: type.hp, maxHp: type.hp, spd: type.spd, eType: type.type, color: type.color, path: type.path,
+            angle: 0, shootTimer: 100 + Math.random() * 200
+        });
+    },
+
+    dropXP: (x, y, amount) => {
+        for(let i=0; i<amount; i++) {
+            Game.entities.xpOrbs.push({
+                x: x, y: y, xv: (Math.random()-0.5)*4, yv: (Math.random()-0.5)*4,
+                life: 600 // 10 seconds to collect
+            });
+        }
+    },
+
+    triggerExplosion: (x, y) => {
+        if(Game.upgrades.explosive > 0) {
+            Game.entities.explosions.push({x: x, y: y, r: 1, maxR: Game.upgrades.explosive, life: 15});
+            Sound.play('explode');
+        }
+    },
+
+    loop: () => {
+        if (currentState === STATE.PLAYING) { 
+            Game.update(); Game.draw(); 
+        } else if (currentState === STATE.GAME_OVER || currentState === STATE.LEVELUP || currentState === STATE.MENU) { 
+            Game.draw(); // Draw frozen background
+        }
+        requestAnimationFrame(Game.loop);
+    },
+
+    update: () => {
+        const ship = Game.entities.ship;
+        Game.timeScale = 1.0;
+        
+        // Endless Spawning Logic
+        if(Math.random() < 0.01 + (Game.level * 0.002)) Game.spawnAsteroid();
+        if(Math.random() < 0.002 + (Game.level * 0.001)) Game.spawnEnemy();
+
+        if (ship && !ship.dead && !ship.explodeTime) {
+            
+            // Mouse Tracking & Movement
+            const dx = input.mouseX - ship.x;
+            const dy = input.mouseY - ship.y;
+            const distToMouse = Math.hypot(dx, dy);
+            
+            if (distToMouse > 20) { // Deadzone to stop spinning
+                const targetAngle = Math.atan2(dy, dx);
+                
+                // Smooth rotation towards mouse
+                let angleDiff = targetAngle - ship.a;
+                // Normalize to -PI to PI
+                while (angleDiff <= -Math.PI) angleDiff += Math.PI * 2;
+                while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                
+                ship.a += angleDiff * 0.2; // Turn speed factor
+                
+                // Acceleration
+                const speedLimit = 6 * Game.upgrades.speedMult;
+                ship.xv += Math.cos(ship.a) * 0.4 * Game.upgrades.speedMult;
+                ship.yv += Math.sin(ship.a) * 0.4 * Game.upgrades.speedMult;
+                
+                // Cap speed
+                const currentSpeed = Math.hypot(ship.xv, ship.yv);
+                if (currentSpeed > speedLimit) {
+                    ship.xv = (ship.xv / currentSpeed) * speedLimit;
+                    ship.yv = (ship.yv / currentSpeed) * speedLimit;
+                }
+                
+                if(Date.now()%15===0) Sound.play('thrust');
+            } else {
+                // Braking when mouse is resting on ship
+                ship.xv *= 0.85;
+                ship.yv *= 0.85;
+            }
+
+            // Apply global friction
+            ship.xv *= 0.96;
+            ship.yv *= 0.96;
+
+            // Time Shift Ability
+            if (input.clickRight && ship.tsEnergy > 0) {
+                Game.timeScale = CONSTANTS.TIME_SLOW_FACTOR;
+                ship.tsEnergy -= CONSTANTS.TS_DRAIN_RATE;
+                if(Date.now()%30===0) Sound.play('timeshift');
+            } else {
+                ship.tsEnergy = Math.min(ship.tsEnergy + CONSTANTS.TS_RECHARGE_RATE, CONSTANTS.TS_MAX_ENERGY);
+            }
+            document.getElementById('ts-bar-fill').style.width = (ship.tsEnergy / CONSTANTS.TS_MAX_ENERGY * 100) + '%';
+
+            // Move Ship
+            ship.x += ship.xv; ship.y += ship.yv;
+            
+            // Screen Wrap
+            if(ship.x < -ship.r) ship.x = CONSTANTS.GAME_WIDTH+ship.r; else if(ship.x > CONSTANTS.GAME_WIDTH+ship.r) ship.x = -ship.r;
+            if(ship.y < -ship.r) ship.y = CONSTANTS.GAME_HEIGHT+ship.r; else if(ship.y > CONSTANTS.GAME_HEIGHT+ship.r) ship.y = -ship.r;
+
+            if (ship.laserTimer > 0) ship.laserTimer--;
+            if (input.clickLeft && ship.laserTimer <= 0) {
+                
+                const baseCooldown = 18;
+                ship.laserTimer = baseCooldown * (1.0 - Game.upgrades.fireRate);
+                Sound.play(Game.upgrades.bulletSize > 0 ? 'shoot_heavy' : 'shoot');
+
+                const spawnLaser = (angleOffset, isFlak = false) => {
+                    const angle = ship.a + angleOffset;
+                    const spd = isFlak ? 8 + Math.random()*4 : 12; // Flak is slower/random
+                    const color = Game.upgrades.prismatic ? `hsl(${Math.random()*360}, 100%, 50%)` : '#44ff44';
+                    
+                    Game.entities.lasers.push({
+                        x: ship.x + Math.cos(ship.a)*20, y: ship.y + Math.sin(ship.a)*20,
+                        xv: Math.cos(angle) * spd, yv: Math.sin(angle) * spd,
+                        dist: 0, life: isFlak ? 20 + Math.random()*10 : 9999, // Flak despawns fast
+                        color: color, 
+                        isFlak: isFlak,
+                        hitList: [] // For piercing
+                    });
+                };
+
+                // Base Shot + Double Shot logic (Parallel lines)
+                const dCount = Game.upgrades.doubleShot;
+                if (dCount === 0) spawnLaser(0);
+                else {
+                    for(let i = -dCount; i <= dCount; i++) {
+                        if (i === 0 && dCount % 2 !== 0) continue; // Skip center if odd number of extra pairs? No, let's just make it simple: offset angles.
+                        spawnLaser(i * 0.1); 
+                    }
+                }
+
+                // Spread Shot
+                for(let i=0; i<Game.upgrades.spreadShot; i++) {
+                    spawnLaser(-0.2 - (i*0.1));
+                    spawnLaser(0.2 + (i*0.1));
+                }
+
+                // Tail Gunner
+                for(let i=0; i<Game.upgrades.tailGunner; i++) {
+                    spawnLaser(Math.PI + (i*0.1));
+                    if(i>0) spawnLaser(Math.PI - (i*0.1));
+                }
+
+                // Flak Cannon
+                for(let i=0; i<Game.upgrades.flak; i++) {
+                    spawnLaser((Math.random()-0.5)*0.8, true);
+                    if(i===0) Sound.play('shoot_flak');
+                }
+            }
+        }
+
+        for (let i = Game.entities.lasers.length - 1; i >= 0; i--) {
+            let l = Game.entities.lasers[i];
+            
+            // Phase Wobble
+            if (Game.upgrades.wobbly && !l.isFlak) {
+                // Add perpendicular sine wave velocity
+                const perpAngle = Math.atan2(l.yv, l.xv) + Math.PI/2;
+                const wobbleAmt = Math.sin(l.dist * 0.1) * 2;
+                l.x += Math.cos(perpAngle) * wobbleAmt;
+                l.y += Math.sin(perpAngle) * wobbleAmt;
+            }
+
+            // Seeker Missiles
+            if (Game.upgrades.seeker > 0 && !l.isFlak) {
+                let nearest = null; let minDist = 300; // Search radius
+                Game.entities.asteroids.forEach(a => {
+                    let d = Math.hypot(a.x - l.x, a.y - l.y);
+                    if(d < minDist) { minDist = d; nearest = a; }
+                });
+                Game.entities.enemies.forEach(e => {
+                    let d = Math.hypot(e.x - l.x, e.y - l.y);
+                    if(d < minDist) { minDist = d; nearest = e; }
+                });
+
+                if (nearest) {
+                    const targetAngle = Math.atan2(nearest.y - l.y, nearest.x - l.x);
+                    const currentAngle = Math.atan2(l.yv, l.xv);
+                    // Smoothly curve velocity vector
+                    let angleDiff = targetAngle - currentAngle;
+                    while(angleDiff <= -Math.PI) angleDiff += Math.PI*2;
+                    while(angleDiff > Math.PI) angleDiff -= Math.PI*2;
+                    
+                    const newAngle = currentAngle + (angleDiff * Game.upgrades.seeker);
+                    const speed = Math.hypot(l.xv, l.yv);
+                    l.xv = Math.cos(newAngle) * speed;
+                    l.yv = Math.sin(newAngle) * speed;
+                }
+            }
+
+            // Move
+            l.x += l.xv; l.y += l.yv; 
+            const moveDist = Math.hypot(l.xv, l.yv);
+            l.dist += moveDist;
+            
+            if (Game.upgrades.tracer && Math.random() < 0.5) {
+                Game.entities.particles.push({x: l.x, y: l.y, xv:0, yv:0, life:10, color: l.color});
+            }
+
+            // Bounce vs Wrap
+            if (Game.upgrades.bouncy) {
+                if(l.x < 0 || l.x > CONSTANTS.GAME_WIDTH) l.xv *= -1;
+                if(l.y < 0 || l.y > CONSTANTS.GAME_HEIGHT) l.yv *= -1;
+            } else {
+                if(l.x < 0) l.x = CONSTANTS.GAME_WIDTH; else if(l.x > CONSTANTS.GAME_WIDTH) l.x = 0;
+                if(l.y < 0) l.y = CONSTANTS.GAME_HEIGHT; else if(l.y > CONSTANTS.GAME_HEIGHT) l.y = 0;
+            }
+
+            // Range / Life Check
+            const maxDist = (CONSTANTS.GAME_WIDTH * 0.8) * Game.upgrades.laserRange;
+            if (l.isFlak) l.life--;
+            if (l.dist > maxDist || l.life <= 0) Game.entities.lasers.splice(i, 1);
+        }
+
+        // Asteroids & Enemies
+        Game.entities.asteroids.forEach(a => {
+            a.x += a.xv * Game.timeScale; a.y += a.yv * Game.timeScale; a.a += a.rot * Game.timeScale;
+            if(a.x < -a.r) a.x = CONSTANTS.GAME_WIDTH+a.r; else if(a.x > CONSTANTS.GAME_WIDTH+a.r) a.x = -a.r;
+            if(a.y < -a.r) a.y = CONSTANTS.GAME_HEIGHT+a.r; else if(a.y > CONSTANTS.GAME_HEIGHT+a.r) a.y = -a.r;
+        });
+
+        Game.entities.enemies.forEach(e => {
+            if (ship) {
+                const angle = Math.atan2(ship.y - e.y, ship.x - e.x);
+                e.x += Math.cos(angle) * e.spd * Game.timeScale; 
+                e.y += Math.sin(angle) * e.spd * Game.timeScale;
+                e.angle = angle; // Save for drawing
+                
+                if (e.eType === 'charger') {
+                    if(Math.random()<0.2) Game.entities.particles.push({x:e.x, y:e.y, xv:0, yv:0, life:10, color:e.color});
+                } else {
+                    e.shootTimer -= Game.timeScale;
+                    if (e.shootTimer <= 0 && !ship.dead) {
+                        if (e.eType === 'tank') {
+                            for(let i=-1; i<=1; i++) {
+                                const fireAngle = angle + (i*0.2) + (Math.random() - 0.5) * 0.1;
+                                Game.entities.enemyLasers.push({ x: e.x, y: e.y, xv: Math.cos(fireAngle)*3, yv: Math.sin(fireAngle)*3, r: 6 });
+                            }
+                            Sound.play('enemyShoot'); e.shootTimer = 180 + Math.random() * 60;
+                        } else {
+                            const fireAngle = angle + (Math.random() - 0.5) * 0.2;
+                            Game.entities.enemyLasers.push({ x: e.x, y: e.y, xv: Math.cos(fireAngle)*4, yv: Math.sin(fireAngle)*4, r: 4 });
+                            Sound.play('enemyShoot'); e.shootTimer = 120 + Math.random() * 60;
+                        }
+                    }
+                }
+            }
+        });
+
+        for (let i = Game.entities.enemyLasers.length - 1; i >= 0; i--) {
+            let l = Game.entities.enemyLasers[i];
+            l.x += l.xv * Game.timeScale; l.y += l.yv * Game.timeScale;
+            if(l.x < 0 || l.x > CONSTANTS.GAME_WIDTH || l.y < 0 || l.y > CONSTANTS.GAME_HEIGHT) Game.entities.enemyLasers.splice(i, 1);
+        }
+
+        // Orbitals (Plasma Drones)
+        Game.entities.orbitals.forEach((o, i) => {
+            if(ship && !ship.dead) {
+                o.angle += o.speed * Game.timeScale;
+                o.x = ship.x + Math.cos(o.angle) * o.dist;
+                o.y = ship.y + Math.sin(o.angle) * o.dist;
+                if(Math.random() < 0.3) Game.createParticles(o.x, o.y, 1, '#ccff00');
+            }
+        });
+
+        // Explosions (AoE)
+        for (let i = Game.entities.explosions.length - 1; i >= 0; i--) {
+            let ex = Game.entities.explosions[i];
+            ex.r += 5; // Expand fast
+            ex.life--;
+            
+            // Damage things inside explosion
+            for(let j = Game.entities.asteroids.length - 1; j >= 0; j--) {
+                let a = Game.entities.asteroids[j];
+                if(Math.hypot(a.x - ex.x, a.y - ex.y) < ex.r + a.r) Game.destroyAsteroid(j);
+            }
+            for(let j = Game.entities.enemies.length - 1; j >= 0; j--) {
+                let e = Game.entities.enemies[j];
+                if(Math.hypot(e.x - ex.x, e.y - ex.y) < ex.r + e.r) {
+                    e.hp -= 2 * Game.timeScale; // Melt them!
+                    if(e.hp <= 0) Game.destroyEnemy(j);
+                }
+            }
+
+            if (ex.life <= 0) Game.entities.explosions.splice(i, 1);
+        }
+
+        Game.checkCollisions();
+
+        // Collect XP Orbs
+        for (let i = Game.entities.xpOrbs.length - 1; i >= 0; i--) {
+            let xp = Game.entities.xpOrbs[i];
+            xp.x += xp.xv; xp.y += xp.yv; xp.life--;
+            
+            // Magnet to player
+            if (ship && !ship.dead) {
+                let d = Math.hypot(ship.x - xp.x, ship.y - xp.y);
+                if (d < 150) { // Magnet radius
+                    xp.xv += (ship.x - xp.x) * 0.05;
+                    xp.yv += (ship.y - xp.y) * 0.05;
+                }
+                if (d < ship.r + 10) { // Collect
+                    Game.xp += 10;
+                    Sound.play('timeshift'); // soft blip
+                    Game.entities.xpOrbs.splice(i, 1);
+                    continue;
+                }
+            }
+            if (xp.life <= 0) Game.entities.xpOrbs.splice(i, 1);
+        }
+
+        // Check Level Up
+        if (Game.xp >= Game.xpNeeded) {
+            Game.xp -= Game.xpNeeded;
+            Game.level++;
+            Game.xpNeeded = Math.floor(Game.xpNeeded * 1.5); // Increase requirement
+            UI.showLevelUp();
+        }
+
+        // Death Handling
+        if (ship && ship.explodeTime > 0) {
+            ship.explodeTime--;
+            if (ship.explodeTime === 0) {
+                Game.lives--;
+                if (Game.lives <= 0) UI.showGameOver(); else Game.entities.ship = Game.createShip();
+            }
+        }
+        UI.updateHUD();
+    },
+
+    checkCollisions: () => {
+        const ship = Game.entities.ship; const lasers = Game.entities.lasers;
+        
+        // Player Lasers vs Everything
+        for (let i = lasers.length - 1; i >= 0; i--) {
+            let l = lasers[i]; let hit = false;
+            let hitRadiusBonus = Game.upgrades.bulletSize * 2; // Titan rounds make hitbox bigger
+
+            // Vs Asteroids
+            for (let j = Game.entities.asteroids.length - 1; j >= 0; j--) {
+                if(l.hitList.includes('a'+j)) continue; // Don't hit same asteroid twice with sniper
+                let a = Game.entities.asteroids[j];
+
+                if (Math.hypot(l.x - a.x, l.y - a.y) < a.r + hitRadiusBonus) {
+                    a.hp -= 1 + (Game.upgrades.bulletSize * 0.5); // Titan damage scaling
+                    triggerExplosion(l.x, l.y);
+
+                    if (a.hp <= 0) {
+                        Game.destroyAsteroid(j);
+                    } else {
+                        Game.createParticles(a.x, a.y, 5, '#fff'); // Show hit but no destroy yet
+                    }
+
+                    if (Game.upgrades.sniper) {
+                        l.hitList.push('a'+j); // Pierced it!
+                    } else {
+                        lasers.splice(i, 1); hit = true;
+                    }
+                    break;
+                }
+            }
+            if (hit) continue;
+
+            // Vs Enemies
+            for (let j = Game.entities.enemies.length - 1; j >= 0; j--) {
+                if(l.hitList.includes('e'+j)) continue;
+                let e = Game.entities.enemies[j];
+
+                if (Math.hypot(l.x - e.x, l.y - e.y) < e.r + 5 + hitRadiusBonus) {
+                    e.hp -= 1 + (Game.upgrades.bulletSize * 0.5); // Damage scaling
+                    triggerExplosion(l.x, l.y);
+                    if(e.hp <= 0) {
+                        Game.destroyEnemy(j); 
+                    } else {
+                        Game.createParticles(e.x, e.y, 5, e.color); // Hit spark
+                    }
+                    if(Game.upgrades.sniper) { l.hitList.push('e'+j); } else { lasers.splice(i, 1); hit = true; }
+                    break;
+                }
+            }
+            if (hit) continue;
+
+            // Vs Enemy Lasers
+            for (let j = Game.entities.enemyLasers.length - 1; j >= 0; j--) {
+                let el = Game.entities.enemyLasers[j];
+                if (Math.hypot(l.x - el.x, l.y - el.y) < 10 + hitRadiusBonus) {
+                    triggerExplosion(l.x, l.y);
+                    Game.entities.enemyLasers.splice(j, 1);
+                    if(!Game.upgrades.sniper) { lasers.splice(i, 1); hit = true; }
+                    Game.createParticles(l.x, l.y, 5, '#fff'); break;
+                }
+            }
+        }
+
+        // Orbital Collisions
+        Game.entities.orbitals.forEach(o => {
+            for (let j = Game.entities.asteroids.length - 1; j >= 0; j--) {
+                let a = Game.entities.asteroids[j];
+                if (Math.hypot(o.x - a.x, o.y - a.y) < a.r + o.size) Game.destroyAsteroid(j);
+            }
+            for (let j = Game.entities.enemies.length - 1; j >= 0; j--) {
+                let e = Game.entities.enemies[j];
+                if (Math.hypot(o.x - e.x, o.y - e.y) < e.r + o.size) {
+                    e.hp -= 0.5 * Game.timeScale; // Melt them!
+                    if (e.hp <= 0) Game.destroyEnemy(j);
+                }
+            }
+        });
+
+        // Ship Hitbox
+        if (ship && !ship.dead && !ship.explodeTime) {
+            Game.entities.asteroids.forEach(a => { if (Math.hypot(ship.x - a.x, ship.y - a.y) < ship.r + a.r) Game.killShip(); });
+            Game.entities.enemies.forEach(e => { if (Math.hypot(ship.x - e.x, ship.y - e.y) < ship.r + e.r) Game.killShip(); });
+            for (let i = 0; i < Game.entities.enemyLasers.length; i++) {
+                let l = Game.entities.enemyLasers[i];
+                if (Math.hypot(ship.x - l.x, ship.y - l.y) < ship.r) { Game.killShip(); Game.entities.enemyLasers.splice(i, 1); break; }
+            }
+        }
+
+        // Helper for explosives
+        function triggerExplosion(x, y) {
+            if(Game.upgrades.explosive > 0) {
+                Game.entities.explosions.push({x: x, y: y, r: 1, maxR: Game.upgrades.explosive, life: 15});
+                Sound.play('explode'); // Maybe too noisy if rapid fire, but cool
+            }
+        }
+    },
+
+    destroyAsteroid: (idx) => {
+        let a = Game.entities.asteroids[idx];
+        Game.entities.asteroids.splice(idx, 1);
+        Game.createParticles(a.x, a.y, 10, '#aaa');
+        Sound.play('explode');
+        Game.score += 100;
+        Game.dropXP(a.x, a.y, a.r > 30 ? 3 : 1);
+
+        if (a.r > 25) { Game.spawnAsteroid(a.x, a.y, a.r/2); Game.spawnAsteroid(a.x, a.y, a.r/2); }
+    },
+
+    destroyEnemy: (idx) => {
+        let e = Game.entities.enemies[idx];
+        Game.entities.enemies.splice(idx, 1);
+        Game.createParticles(e.x, e.y, 15, e.color || '#ff0000');
+        Sound.play('explode');
+        Game.score += 500;
+        Game.dropXP(e.x, e.y, e.eType === 'tank' ? 8 : 4);
+    },
+
+    killShip: () => {
+        Game.entities.ship.explodeTime = 30;
+        Game.createParticles(Game.entities.ship.x, Game.entities.ship.y, 40, '#44ff44');
+        Sound.play('explode');
+    },
+
+    createParticles: (x, y, count, color) => {
+        for(let i=0; i<count; i++) {
+            Game.entities.particles.push({
+                x:x, y:y, xv:(Math.random()-0.5)*5, yv:(Math.random()-0.5)*5,
+                life: 30 + Math.random()*20, color:color
+            });
+        }
+    },
+
+    draw: () => {
+        const ctx = document.getElementById('gameCanvas').getContext('2d');
+        ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, CONSTANTS.GAME_WIDTH, CONSTANTS.GAME_HEIGHT);
+
+        // Time Shift Tint
+        if (Game.timeScale < 1.0) {
+            ctx.fillStyle = 'rgba(0, 50, 100, 0.2)';
+            ctx.fillRect(0, 0, CONSTANTS.GAME_WIDTH, CONSTANTS.GAME_HEIGHT);
+        }
+
+        // XP Orbs
+        Game.entities.xpOrbs.forEach(xp => {
+            ctx.fillStyle = '#ffcc00'; ctx.shadowBlur = 10; ctx.shadowColor = '#ffcc00';
+            ctx.beginPath(); ctx.arc(xp.x, xp.y, 3, 0, Math.PI*2); ctx.fill();
+        });
+        ctx.shadowBlur = 0;
+
+        // Particles
+        Game.entities.particles.forEach((p, i) => {
+            p.x += p.xv * Game.timeScale; p.y += p.yv * Game.timeScale; p.life -= Game.timeScale;
+            if (p.life <= 0) Game.entities.particles.splice(i, 1);
+            ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 2, 2);
+        });
+
+        // Orbitals
+        Game.entities.orbitals.forEach(o => {
+            ctx.beginPath(); ctx.arc(o.x, o.y, o.size, 0, Math.PI*2);
+            ctx.fillStyle = '#ccff00'; ctx.shadowBlur = o.size * 1.5; ctx.shadowColor = '#ccff00';
+            ctx.fill(); ctx.shadowBlur = 0;
+        });
+
+        const ship = Game.entities.ship;
+        if (ship && !ship.dead && !ship.explodeTime) {
+            ctx.save(); ctx.translate(ship.x, ship.y); ctx.rotate(ship.a + Math.PI/2);
+            ctx.strokeStyle = '#44ff44';
+            ctx.lineWidth = 2; const p = new Path2D("M 0 -20 L 12 15 L 0 10 L -12 15 Z"); ctx.stroke(p);
+            
+            // Draw Mouse Cursor Targeting Line (subtle)
+            if(currentState === STATE.PLAYING) {
+                ctx.restore(); // pop out of ship space to draw line to raw mouse
+                ctx.save();
+                ctx.strokeStyle = 'rgba(68, 255, 68, 0.2)'; ctx.setLineDash([5, 10]);
+                ctx.beginPath(); ctx.moveTo(ship.x, ship.y); ctx.lineTo(input.mouseX, input.mouseY); ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        // Asteroids
+        ctx.strokeStyle = '#ccc'; ctx.lineWidth = 2;
+        Game.entities.asteroids.forEach(a => { ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(a.a); ctx.stroke(a.path); ctx.restore(); });
+
+        // Enemies
+        Game.entities.enemies.forEach(e => { 
+            ctx.save(); ctx.translate(e.x, e.y); 
+            ctx.rotate(e.angle - Math.PI/2);
+            ctx.strokeStyle = e.color || '#ff4444';
+            ctx.lineWidth = 2;
+            ctx.stroke(e.path || new Path2D("M -10 -5 L 10 -5 L 0 10 Z"));
+            
+            // Health Bar
+            if(e.maxHp > 1 && e.hp < e.maxHp) {
+                ctx.rotate(-(e.angle - Math.PI/2)); // Un-rotate for flat health bar
+                ctx.fillStyle = '#ff0000'; ctx.fillRect(-10, -e.r - 10, 20, 3);
+                ctx.fillStyle = '#00ff00'; ctx.fillRect(-10, -e.r - 10, 20 * (e.hp / e.maxHp), 3);
+            }
+            ctx.restore(); 
+        });
+
+        // Lasers
+        Game.entities.lasers.forEach(l => { 
+            ctx.fillStyle = l.color; 
+            ctx.shadowBlur = 10; ctx.shadowColor = l.color;
+            const s = 4 + (Game.upgrades.bulletSize * 2); // Titan visually bigger
+            ctx.fillRect(l.x - s/2, l.y - s/2, s, s); 
+        });
+        ctx.shadowBlur = 0;
+
+        // Enemy Lasers
+        ctx.fillStyle = '#ff9900';
+        Game.entities.enemyLasers.forEach(l => { ctx.beginPath(); ctx.arc(l.x, l.y, l.r, 0, Math.PI*2); ctx.fill(); });
+
+        // Explosions
+        Game.entities.explosions.forEach(ex => {
+            ctx.beginPath(); ctx.arc(ex.x, ex.y, ex.r, 0, Math.PI*2);
+            ctx.fillStyle = `rgba(255, 170, 0, ${ex.life / 15})`; // Fade out
+            ctx.fill();
+        });
+    }
+};
+
+const UI = {
+    hideAll: () => document.querySelectorAll('.menu-screen').forEach(m => m.classList.remove('active')),
+    
+    showMain: () => { UI.hideAll(); document.getElementById('menu-main').classList.add('active'); currentState = STATE.MENU; },
+    
+    showGameOver: () => { 
+        UI.hideAll(); 
+        document.getElementById('final-score').innerText = "SCORE: " + Game.score; 
+        document.getElementById('final-level').innerText = "REACHED LEVEL: " + Game.level; 
+        document.getElementById('menu-gameover').classList.add('active'); 
+        currentState = STATE.GAME_OVER; 
+    },
+    
+    showLevelUp: () => {
+        UI.hideAll();
+        Sound.play('levelup');
+        document.getElementById('menu-levelup').classList.add('active');
+        currentState = STATE.LEVELUP;
+
+        // Pick 3 random unique upgrades
+        const choices = [];
+        const pool = [...UPGRADE_POOL];
+        for(let i=0; i<3; i++) {
+            if(pool.length === 0) break;
+            const idx = Math.floor(Math.random() * pool.length);
+            choices.push(pool[idx]);
+            pool.splice(idx, 1);
+        }
+
+        const container = document.getElementById('upgrade-container');
+        container.innerHTML = '';
+        choices.forEach(upg => {
+            const card = document.createElement('div');
+            card.className = 'upgrade-card';
+            card.style.borderColor = upg.color;
+            card.innerHTML = `
+                <div class="upg-title" style="color:${upg.color}">${upg.name}</div>
+                <div class="upg-desc">${upg.desc}</div>
+                <div class="upg-flavor">${upg.flavor}</div>
+            `;
+            card.onclick = () => {
+                upg.apply();
+                Sound.play('shoot'); // UI click sound
+                UI.hideAll();
+                currentState = STATE.PLAYING;
+            };
+            container.appendChild(card);
+        });
+    },
+
+    updateHUD: () => {
+        document.getElementById('score').innerText = 'SCORE: ' + Game.score;
+        document.getElementById('lives').innerText = 'LIVES: ' + Game.lives;
+        document.getElementById('level-hud').innerText = 'LVL: ' + Game.level;
+        document.getElementById('xp-bar-fill').style.width = (Game.xp / Game.xpNeeded * 100) + '%';
+    }
+};
+
+// Start Loop
+Game.init();
+</script>
+</body>
+</html>

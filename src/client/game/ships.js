@@ -37,8 +37,9 @@ export const SHIPS = [
         stats: { speed: 1.15, fireDelay: 16, damage: 1, color: '#cc88ff' },
         ability: {
             key: 'dash', name: 'PHASE DASH', color: '#cc66ff', mode: 'cooldown',
-            desc: 'Blink instantly to the cursor, shredding everything along the path.',
-            max: 300, regen: 1, damage: 5, graceFrames: 40
+            desc: 'Blink instantly ahead (or to the cursor), shredding everything along the path.',
+            max: 300, regen: 1, damage: 5, graceFrames: 40,
+            touchRange: 320 // px blinked along the thumbstick on touch screens
         }
     },
     {

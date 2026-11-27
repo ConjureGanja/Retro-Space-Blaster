@@ -11,6 +11,7 @@ import '../styles/main.css';
 
 import { STATE, Runtime } from './config.js';
 import { initInput } from './input.js';
+import { initTouch, releaseTouch } from './touch.js';
 import { Sprites } from './sprites.js';
 import { Game } from './game.js';
 import { UI } from './ui.js';
@@ -85,7 +86,25 @@ function loop(now) {
     if (steps === MAX_STEPS_PER_FRAME) accumulator = 0;
 
     draw();
+    syncStateClass();
     requestAnimationFrame(loop);
+}
+
+/**
+ * Mirror the game state onto <body data-state="..."> so CSS can show or hide
+ * things per state (e.g. touch controls only while flying) without every
+ * state change remembering to toggle classes. Only touches the DOM when the
+ * state actually changes.
+ * Analogy: the "ON AIR" light outside a studio — wired to the state, not to
+ * whoever walks in.
+ */
+const STATE_NAMES = Object.fromEntries(Object.entries(STATE).map(([k, v]) => [v, k.toLowerCase()]));
+let shownState = null;
+function syncStateClass() {
+    if (Runtime.state === shownState) return;
+    shownState = Runtime.state;
+    if (Runtime.state !== STATE.PLAYING) releaseTouch();
+    document.body.dataset.state = STATE_NAMES[Runtime.state] || '';
 }
 
 async function boot() {
@@ -94,6 +113,7 @@ async function boot() {
     await store.hydrate();
 
     initInput(canvas);
+    initTouch({ onPause: () => UI.pause() });
     initRenderer(canvas);
     Game.init(canvas);
     UI.bindEvents();
