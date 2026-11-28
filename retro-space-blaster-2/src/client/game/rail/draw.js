@@ -10,8 +10,9 @@
  * guess which gap was safe, the pattern would be a quiz instead of a fight.
  */
 
-import { safeLane } from './content.ts';
-import { project } from './project.ts';
+import { SAFE_LANE_HALF } from './content.ts';
+import { laneOf } from './sim.ts';
+import { project, spreadFor } from './project.ts';
 import { assistOrigin, reticleMarks } from './reticle.ts';
 import { Sprites } from '../sprites.js';
 import { TUNE } from './tune.ts';
@@ -122,9 +123,8 @@ function drawRear(ctx, sprite, x, y, width, roll, alpha, squash = 1) {
   ctx.restore();
 }
 
-function drawSafeLane(ctx, frame, theme, w, h) {
-  const lane = safeLane(frame);
-  const half = 36;
+function drawSafeLane(ctx, frame, theme, w, h, lane) {
+  const half = SAFE_LANE_HALF;
   ctx.save();
   ctx.fillStyle = theme.accent;
   ctx.globalAlpha = 0.16;
@@ -161,7 +161,7 @@ function foeKey(enemy, frame) {
 
 function drawEnemy(ctx, enemy, w, h, frame) {
   const p = project(enemy.x, enemy.y, enemy.z, w, h);
-  const radius = Math.max(8, enemy.r * p.scale * TUNE.X_SPREAD * 0.95);
+  const radius = Math.max(8, enemy.r * p.scale * spreadFor(w, h).x * 0.95);
   const intro = enemy.intro > 0 ? 0.45 + (1 - enemy.intro / 14) * 0.55 : 1;
   ctx.save();
   ctx.translate(p.x, p.y);
@@ -499,7 +499,7 @@ export function drawFrame(canvas, run, menuFrame, reduced) {
   }
   ctx.globalAlpha = 1;
 
-  if (run) drawSafeLane(ctx, frame, theme, w, h);
+  if (run) drawSafeLane(ctx, frame, theme, w, h, laneOf(run));
 
   if (!run) return;
 
@@ -612,7 +612,7 @@ export function drawFrame(canvas, run, menuFrame, reduced) {
     ctx.strokeStyle = '#7cffb2';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(shipAt.x, shipAt.y, TUNE.PLAYER_R * TUNE.X_SPREAD, 0, Math.PI * 2);
+    ctx.arc(shipAt.x, shipAt.y, TUNE.PLAYER_R * spreadFor(w, h).x, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
   }

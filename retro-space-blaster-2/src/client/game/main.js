@@ -32,12 +32,15 @@ function frame(now) {
   // A tab hidden for a minute should not fast-forward the fight.
   if (elapsed > 250) elapsed = 250;
   accumulator += elapsed;
-  const input = readControls();
   let steps = 0;
   while (accumulator >= STEP_MS && steps < MAX_STEPS_PER_FRAME) {
     accumulator -= STEP_MS;
     steps += 1;
-    tickShell(input);
+    // Why here: pause and roll are one-shot edges. Reading them on a paint that
+    // runs no step (every other frame on a 120/144 Hz screen) would swallow them.
+    // Analogy: a mail slot that only opens when the postman is actually at the
+    // door, so letters wait on the mat instead of being thrown away.
+    tickShell(readControls());
   }
   syncTouchMode(fightVisible() && Runtime.state === STATE.PLAYING);
   drawShell(canvas);

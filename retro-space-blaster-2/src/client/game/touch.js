@@ -10,11 +10,23 @@
  * and the fire button is a real button, not "whatever your thumb is doing."
  */
 
-import { STATE, Runtime } from './config.js';
-import { Sound } from './audio.js';
-import { requestTouchRoll, setStick, setTouchFire, setTouchSpecial } from './rail/controls.ts';
+import {
+    releaseAllHeld,
+    requestTouchRoll,
+    setStick,
+    setTouchFire,
+    setTouchSpecial,
+} from './rail/controls.ts';
+import { pauseForOrientation } from './rail/shell.js';
 
-let heldForPortrait = false;
+// Each touch control registers how to let go of itself, so blur / a hidden tab /
+// hidden controls can drop everything in one call.
+const releasers = [];
+
+function releaseTouchControls() {
+    for (const release of releasers) release();
+    releaseAllHeld();
+}
 
 function wantsTouch() {
     const params = new URLSearchParams(location.search);
@@ -43,17 +55,8 @@ function applyOrientation() {
     document.body.classList.toggle('need-rotate', need);
     if (need) tryLockLandscape();
 
-    if (need && Runtime.state === STATE.PLAYING) {
-        heldForPortrait = true;
-        Runtime.state = STATE.PAUSED;
-        Sound.pauseBGM();
-    } else if (!need && heldForPortrait) {
-        heldForPortrait = false;
-        if (Runtime.state === STATE.PAUSED) {
-            Runtime.state = STATE.PLAYING;
-            Sound.resumeBGM();
-        }
-    }
+    // The shell owns pause state, so rotating can never fight the Esc menu.
+    pauseForOrientation(need);
 }
 
 /** Hold a button the same way a mouse button is held. */
@@ -78,6 +81,8 @@ function holdButton(el, which) {
     el.addEventListener('pointerdown', press);
     el.addEventListener('pointerup', release);
     el.addEventListener('pointercancel', release);
+    el.addEventListener('lostpointercapture', release);
+    releasers.push(() => release(null));
 }
 
 /**
@@ -87,25 +92,41 @@ function holdButton(el, which) {
 function bindMovePad() {
     const pad = document.getElementById('touch-move');
     let origin = null;
+    // Which finger owns the pad. e.touches[0] is the first finger anywhere on the
+    // page, which is the FIRE thumb if FIRE was pressed first.
+    // Analogy: a coat-check ticket. Only the ticket you were handed at the start
+    // gets your coat back, not whoever happens to be first in the queue.
+    let ownerId = null;
     const sens = 72;
+    const findOwner = (list) => {
+        for (const touch of list) if (touch.identifier === ownerId) return touch;
+        return null;
+    };
     pad.addEventListener('touchstart', (e) => {
         e.preventDefault();
+        if (ownerId !== null) return;
         const touch = e.changedTouches[0];
+        ownerId = touch.identifier;
         origin = { x: touch.clientX, y: touch.clientY };
         setStick(0, 0);
     }, { passive: false });
     pad.addEventListener('touchmove', (e) => {
         e.preventDefault();
         if (!origin) return;
-        const touch = e.touches[0];
+        const touch = findOwner(e.touches);
+        if (!touch) return;
         setStick((touch.clientX - origin.x) / sens, (touch.clientY - origin.y) / sens);
     }, { passive: false });
-    const end = () => {
+    const end = (e) => {
+        // Only the owning finger lifting ends the steer.
+        if (e && ownerId !== null && !findOwner(e.changedTouches)) return;
         origin = null;
+        ownerId = null;
         setStick(0, 0);
     };
     pad.addEventListener('touchend', end);
     pad.addEventListener('touchcancel', end);
+    releasers.push(() => end(null));
 }
 
 /**
@@ -127,6 +148,10 @@ export function initTouch(canvas) {
         roll.addEventListener('pointerup', () => roll.classList.remove('held'));
     }
     bindMovePad();
+    window.addEventListener('blur', releaseTouchControls);
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) releaseTouchControls();
+    });
     window.addEventListener('resize', applyOrientation);
     window.addEventListener('orientationchange', applyOrientation);
     // A tap is the gesture some browsers require before they will lock.
@@ -141,4 +166,6 @@ export function initTouch(canvas) {
 export function syncTouchMode(playing) {
     if (document.body.classList.contains('playing') === playing) return;
     document.body.classList.toggle('playing', playing);
+    // Controls just disappeared: anything still "held" would otherwise stay held.
+    if (!playing) releaseTouchControls();
 }

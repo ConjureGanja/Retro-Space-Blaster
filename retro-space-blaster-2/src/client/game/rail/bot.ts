@@ -9,8 +9,7 @@
  * gap rather than at the oncoming truck.
  */
 
-import { safeLane } from './content.ts';
-import { audit, createRun, playerSpeed, step, type Input, type Run } from './sim.ts';
+import { audit, createRun, laneOf, playerSpeed, step, type Input, type Run } from './sim.ts';
 import { TUNE } from './tune.ts';
 
 function clamp(value: number, lo: number, hi: number): number {
@@ -86,7 +85,7 @@ function aimPoint(state: Run): Point {
 
 export function botIntent(state: Run): Input {
   const target = aimPoint(state);
-  const lane = safeLane(state.frame);
+  const lane = laneOf(state);
   const samples: Point[] = [
     { x: state.player.x, y: state.player.y },
     target,

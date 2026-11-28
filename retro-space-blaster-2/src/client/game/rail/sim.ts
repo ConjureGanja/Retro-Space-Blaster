@@ -17,7 +17,9 @@ import {
   ARCHETYPES,
   buildVolley,
   getLevel,
-  safeLane,
+  LANE_BEAT_FRAMES,
+  SAFE_LANE_HALF,
+  safeLaneForBeat,
   type BossDef,
   type EnemyKind,
   type LevelDef,
@@ -207,6 +209,14 @@ export type Run = {
   record: boolean;
   /** Patterned volleys wait their turn so two walls can't seal each other's hole. */
   salvoUntil: number;
+  /**
+   * The lane beat the player sees and every volley is built against. It only
+   * advances once no live or pending shot threatens the next lane, so a
+   * highlighted "safe" lane is never one an in-flight shot was aimed at.
+   * Analogy: a crossing guard who keeps the green man lit until the last car
+   * already on the road has passed.
+   */
+  laneBeat: number;
   sfx: (name: string) => void;
   rng: () => number;
   nextId: number;
@@ -478,6 +488,39 @@ function release(state: Run, enemy: Enemy): void {
   state.sfx('enemyShoot');
 }
 
+/** The lane currently shown to the player and used to build volleys. */
+export function laneOf(state: Run): number {
+  return safeLaneForBeat(state.laneBeat);
+}
+
+/**
+ * Would a shot that is live, or a volley still winding up, cross this lane?
+ * Looking at the real shots (aimed ones and slowed ones included) is sturdier
+ * than a timer, and it never freezes the lane in a busy fight: a shot far from
+ * the lane about to light up does not hold it back.
+ * Analogy: checking the crosswalk for cars actually coming before the light
+ * turns, not just waiting a fixed ten seconds.
+ */
+function laneThreatened(state: Run, lane: number): boolean {
+  for (const shot of state.eShots) {
+    if (!shot.friendly && Math.abs(shot.x - lane) < SAFE_LANE_HALF + shot.r) return true;
+  }
+  for (const enemy of state.enemies) {
+    if (!enemy.alive) continue;
+    for (const dot of enemy.pending) {
+      if (Math.abs(dot.x - lane) < SAFE_LANE_HALF + dot.r) return true;
+    }
+  }
+  return false;
+}
+
+/** Move to the scheduled beat only once the lane about to be shown is clear. */
+function advanceLane(state: Run): void {
+  const due = Math.floor(state.frame / LANE_BEAT_FRAMES);
+  if (due <= state.laneBeat) return;
+  if (!laneThreatened(state, safeLaneForBeat(due))) state.laneBeat = due;
+}
+
 function arm(state: Run, enemy: Enemy, pattern: PatternName, every: number): void {
   const patterned = pattern === 'gap-pair' || pattern === 'lanes-gap' || pattern === 'fan-gap';
   // One patterned volley in the air at a time. Like a four-way stop:
@@ -499,7 +542,7 @@ function arm(state: Run, enemy: Enemy, pattern: PatternName, every: number): voi
     px: state.player.x,
     py: state.player.y,
     gap: enemy.seed + Math.floor(state.frame / 140),
-    safeX: safeLane(state.frame),
+    safeX: laneOf(state),
   });
   if (dots.length === 0) return;
   enemy.pending = dots;
@@ -594,7 +637,7 @@ function moveEnemy(state: Run, enemy: Enemy, slow: number): void {
     if (enemy.reflectT > 0) {
       enemy.reflectT -= 1;
       if (enemy.reflectT === 0 && enemy.z >= TUNE.Z_NO_FIRE) {
-        const safe = safeLane(state.frame);
+        const safe = laneOf(state);
         let sx = state.player.x >= safe ? state.player.x + 60 : state.player.x - 60;
         if (Math.abs(sx - safe) < 44) sx += 70;
         sx = clamp(sx, -TUNE.PLAY_X, TUNE.PLAY_X);
@@ -756,7 +799,8 @@ function updateSpecial(state: Run, input: Input): void {
     state.sfx('nova');
   } else if (ability.key === 'dash') {
     const tx = input.useAim ? input.aimX : state.player.x + input.ax * 90;
-    const ty = input.useAim ? input.aimY : state.player.y - input.ay * 90;
+    // Same sign as movePlayer: up is negative ay, and the ship moves by +ay.
+    const ty = input.useAim ? input.aimY : state.player.y + input.ay * 90;
     for (const enemy of state.enemies) {
       if (Math.hypot(enemy.x - tx, enemy.y - ty) < 36) damageEnemy(state, enemy, ability.damage);
     }
@@ -1088,6 +1132,7 @@ export function createRun(opts: RunOpts = {}): Run {
     threats: [],
     record: opts.record === true,
     salvoUntil: 0,
+    laneBeat: 0,
     sfx: () => {},
     rng: mulberry32(opts.seed ?? 1),
     nextId: 1,
@@ -1133,6 +1178,7 @@ export function step(state: Run, input: Input): void {
   if (state.buff.rapid > 0) state.buff.rapid -= 1;
   if (state.buff.spread > 0) state.buff.spread -= 1;
 
+  advanceLane(state);
   movePlayer(state, input);
   updateSpecial(state, input);
   const slow = state.slow;

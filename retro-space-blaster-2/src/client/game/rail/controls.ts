@@ -102,6 +102,23 @@ export function setTouchSpecial(down: boolean): void {
   specialTouch = down;
 }
 
+/**
+ * Let go of everything that is "held". If the finger or key is released while
+ * the window is not looking (alt-tab, notification shade, tab switch), the
+ * release event never arrives and the ship would keep firing or drifting.
+ * Analogy: dropping the dead-man's handle when you leave the cab.
+ */
+export function releaseAllHeld(): void {
+  keys.clear();
+  fireMouse = false;
+  fireTouch = false;
+  specialMouse = false;
+  specialTouch = false;
+  stickX = 0;
+  stickY = 0;
+  stickEngaged = false;
+}
+
 export function initControls(canvas: HTMLCanvasElement): void {
   const aimFromEvent = (event: MouseEvent, fromMove: boolean) => {
     const rect = canvas.getBoundingClientRect();
@@ -125,12 +142,9 @@ export function initControls(canvas: HTMLCanvasElement): void {
   window.addEventListener('keyup', (event) => {
     keys.delete(event.key.toLowerCase());
   });
-  window.addEventListener('blur', () => {
-    keys.clear();
-    fireMouse = false;
-    specialMouse = false;
-    stickX = 0;
-    stickY = 0;
+  window.addEventListener('blur', releaseAllHeld);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) releaseAllHeld();
   });
 
   canvas.addEventListener('mousemove', (event) => aimFromEvent(event, true));
