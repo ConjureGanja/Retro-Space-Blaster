@@ -10,6 +10,7 @@
  * guess which gap was safe, the pattern would be a quiz instead of a fight.
  */
 
+import { SAFE_LANE_HALF } from './content.ts';
 import { laneOf } from './sim.ts';
 import { project, spreadFor } from './project.ts';
 import { assistOrigin, reticleMarks } from './reticle.ts';
@@ -123,7 +124,7 @@ function drawRear(ctx, sprite, x, y, width, roll, alpha, squash = 1) {
 }
 
 function drawSafeLane(ctx, frame, theme, w, h, lane) {
-  const half = 36;
+  const half = SAFE_LANE_HALF;
   ctx.save();
   ctx.fillStyle = theme.accent;
   ctx.globalAlpha = 0.16;

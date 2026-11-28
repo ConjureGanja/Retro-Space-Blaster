@@ -165,6 +165,8 @@ export type ShotDot = { x: number; y: number; r: number };
  * Half the beats sit on the center line so guns still have a shot at a boss.
  */
 export const LANE_BEAT_FRAMES = 140;
+/** Half the width of the highlighted safe lane. Drawn and judged with the same number. */
+export const SAFE_LANE_HALF = 36;
 
 export function safeLaneForBeat(beat: number): number {
   const lanes = [-80, 0, 80, 0];

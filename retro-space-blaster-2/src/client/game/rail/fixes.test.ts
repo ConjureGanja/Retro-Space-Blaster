@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { LANE_BEAT_FRAMES, safeLaneForBeat } from './content.ts';
 import { project, unproject } from './project.ts';
-import { IDLE, createRun, laneOf, step } from './sim.ts';
+import { IDLE, createRun, laneOf, step, type Run } from './sim.ts';
 import { TUNE } from './tune.ts';
 
 test('phase dash goes the way you steer, up is negative y', () => {
@@ -21,18 +21,60 @@ test('phase dash goes the way you steer, up is negative y', () => {
   assert.ok(run.player.y < -20, `dashed to y=${run.player.y}, expected upward`);
 });
 
-test('the shown safe lane holds while a patterned volley is in the air', () => {
+/** A hostile shot that stays put, so the test controls exactly where it is. */
+function parkedShot(x: number): Run['eShots'][number] {
+  return {
+    x,
+    y: 0,
+    z: 500,
+    vz: 0,
+    r: 4,
+    damage: 1,
+    bornZ: 500,
+    friendly: false,
+    grazed: false,
+  };
+}
+
+/**
+ * Step with only the parked shot alive, so natural enemy fire cannot muddy the
+ * result. Enemies are cleared before every step for the same reason.
+ */
+function stepWithOnly(run: Run, shot: Run['eShots'][number], frames: number): void {
+  for (let i = 0; i < frames; i += 1) {
+    run.enemies = [];
+    run.eShots = [shot];
+    step(run, IDLE);
+  }
+}
+
+test('the shown lane holds while a live shot sits in the lane about to light up', () => {
   const run = createRun({ seed: 1 });
-  run.salvoUntil = LANE_BEAT_FRAMES * 3;
+  // Beat 1 lights the center lane (x = 0). An aimed shot is parked right there.
   const before = laneOf(run);
-  for (let i = 0; i < LANE_BEAT_FRAMES * 2; i += 1) step(run, IDLE);
-  assert.equal(laneOf(run), before, 'lane moved under an in-flight volley');
+  stepWithOnly(run, parkedShot(0), LANE_BEAT_FRAMES + 60);
+  assert.equal(laneOf(run), before, 'lane moved into a live shot');
 });
 
-test('the safe lane catches up once the volleys are gone', () => {
+test('a slowed shot still holds the lane after any fixed timer would have expired', () => {
   const run = createRun({ seed: 1 });
   run.salvoUntil = 0;
-  for (let i = 0; i < LANE_BEAT_FRAMES + 2; i += 1) step(run, IDLE);
+  stepWithOnly(run, parkedShot(10), LANE_BEAT_FRAMES + 20);
+  assert.equal(laneOf(run), safeLaneForBeat(0));
+});
+
+test('once the shot is gone the lane catches up', () => {
+  const run = createRun({ seed: 1 });
+  stepWithOnly(run, parkedShot(0), LANE_BEAT_FRAMES + 20);
+  run.eShots = [];
+  run.enemies = [];
+  step(run, IDLE);
+  assert.equal(laneOf(run), safeLaneForBeat(1));
+});
+
+test('a shot far from the next lane does not freeze the lane', () => {
+  const run = createRun({ seed: 1 });
+  stepWithOnly(run, parkedShot(130), LANE_BEAT_FRAMES + 2);
   assert.equal(laneOf(run), safeLaneForBeat(1));
 });
 

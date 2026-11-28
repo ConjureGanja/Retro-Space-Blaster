@@ -372,10 +372,15 @@ function togglePause() {
  */
 export function pauseForOrientation(need) {
   if (need) {
-    if (!fighting || autoPaused || Runtime.state !== STATE.PLAYING) return;
+    if (!fighting || autoPaused) return;
+    // Record the orientation pause even if the player already paused, so Esc
+    // cannot resume the fight behind the rotate card. Only touch the runtime
+    // and audio when the fight was actually running.
     autoPaused = true;
-    Runtime.state = STATE.PAUSED;
-    Sound.pauseBGM();
+    if (Runtime.state === STATE.PLAYING) {
+      Runtime.state = STATE.PAUSED;
+      Sound.pauseBGM();
+    }
     return;
   }
   if (!autoPaused) return;
