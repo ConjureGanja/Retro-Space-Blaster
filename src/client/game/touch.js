@@ -91,6 +91,14 @@ export function initTouch({ onPause }) {
         if (e.pointerType === 'touch') setMode('touch');
         else if (e.pointerType === 'mouse') setMode('mouse');
     }, { capture: true });
+    // Losing focus mid-drag means the pointerup may never arrive, so the stick
+    // would stay deflected and the ship would keep flying on return. input.js
+    // already drops the mouse buttons on blur; this drops the thumbstick too.
+    // Analogy: letting go of the wheel when you leave the car.
+    window.addEventListener('blur', releaseTouch);
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) releaseTouch();
+    });
     window.addEventListener('mousemove', e => {
         // Touch browsers fire a fake mousemove after taps — ignore those
         // (they report zero movement).

@@ -164,9 +164,15 @@ export type ShotDot = { x: number; y: number; r: number };
  * It steps slowly — a ship can walk there before the next step.
  * Half the beats sit on the center line so guns still have a shot at a boss.
  */
-export function safeLane(frame: number): number {
+export const LANE_BEAT_FRAMES = 140;
+
+export function safeLaneForBeat(beat: number): number {
   const lanes = [-80, 0, 80, 0];
-  return lanes[Math.floor(frame / 140) % lanes.length] ?? 0;
+  return lanes[beat % lanes.length] ?? 0;
+}
+
+export function safeLane(frame: number): number {
+  return safeLaneForBeat(Math.floor(frame / LANE_BEAT_FRAMES));
 }
 
 /**

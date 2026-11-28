@@ -25,6 +25,9 @@ let screen = 'title';
 let run = null;
 let fighting = false;
 let userPaused = false;
+// Paused by the rotate-your-phone card, not by the player. Kept apart from
+// userPaused so turning the phone back never undoes a pause the player chose.
+let autoPaused = false;
 let useBot = false;
 let pauseAt = 0;
 let menuFrame = 0;
@@ -274,6 +277,7 @@ function rememberScore() {
 function onClear() {
   fighting = false;
   userPaused = false;
+  autoPaused = false;
   Runtime.state = STATE.MENU;
   Sound.stopBGM();
   Sound.startMenuBGM();
@@ -300,6 +304,7 @@ function onClear() {
 function onDead() {
   fighting = false;
   userPaused = false;
+  autoPaused = false;
   Runtime.state = STATE.MENU;
   Sound.stopBGM();
   Sound.startMenuBGM();
@@ -329,6 +334,7 @@ export function beginLevel(id, opts = {}) {
   run.sfx = (name) => Sound.play(name);
   fighting = true;
   userPaused = false;
+  autoPaused = false;
   useBot = opts.bot === true;
   pauseAt = opts.pauseAt || 0;
   demoRoll = opts.demoRoll === true;
@@ -348,9 +354,35 @@ function togglePause() {
     Sound.pauseBGM();
     show('pause');
   } else {
+    // Resuming from the menu while the phone is still upright must not start
+    // the fight behind the rotate card.
+    if (!autoPaused) {
+      Runtime.state = STATE.PLAYING;
+      Sound.resumeBGM();
+    }
+    show('hud');
+  }
+}
+
+/**
+ * Called by the touch layer when the phone is turned upright (need = true) or
+ * back on its side (need = false). Only an automatic pause is ever undone here.
+ * Analogy: a lifeguard blowing the "everyone out" whistle for the storm, then
+ * the all-clear. Swimmers who got out on their own are not forced back in.
+ */
+export function pauseForOrientation(need) {
+  if (need) {
+    if (!fighting || autoPaused || Runtime.state !== STATE.PLAYING) return;
+    autoPaused = true;
+    Runtime.state = STATE.PAUSED;
+    Sound.pauseBGM();
+    return;
+  }
+  if (!autoPaused) return;
+  autoPaused = false;
+  if (fighting && !userPaused && Runtime.state === STATE.PAUSED) {
     Runtime.state = STATE.PLAYING;
     Sound.resumeBGM();
-    show('hud');
   }
 }
 
@@ -730,6 +762,7 @@ function build() {
     else if (kind === 'quit') {
       fighting = false;
       userPaused = false;
+      autoPaused = false;
       Runtime.state = STATE.MENU;
       Sound.stopBGM();
       Sound.startMenuBGM();
